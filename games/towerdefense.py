@@ -1274,10 +1274,20 @@ threading.Thread(target=monitor_start_menu, daemon=True).start()
 # ------------------------------ #
 
 def close_game():
-    # Launch comm-v9.py from the parent directory.
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
-    subprocess.Popen(["python", comm_v9_path])
+    # Try to restore the main app window first
+    try:
+        hwnd = win32gui.FindWindow(None, "Accessible Menu")
+        if hwnd:
+            # Restore the window from minimized state
+            win32gui.ShowWindow(hwnd, 9)  # SW_RESTORE
+            win32gui.SetForegroundWindow(hwnd)
+        else:
+            # If window not found, launch the main app
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
+            subprocess.Popen(["python", comm_v9_path])
+    except Exception as e:
+        print("Failed to restore main app:", e)
     pygame.quit()
     exit()
 

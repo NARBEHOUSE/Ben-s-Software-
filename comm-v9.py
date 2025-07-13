@@ -549,7 +549,7 @@ class App(tk.Tk):
         # Speak the button's text if the frame matches
         if isinstance(self.current_frame, (
             MainMenuPage, EntertainmentMenuPage, SettingsMenuPage,
-            TriviaGamePage, TriviaMenuPage, LibraryMenu, GamesPage, CommunicationPageMenu
+            LibraryMenu, GamesPage, CommunicationPageMenu
         )):
             speak(self.buttons[self.current_button_index]["text"])
 
@@ -568,7 +568,7 @@ class App(tk.Tk):
         # Speak the button's text if the frame matches
         if isinstance(self.current_frame, (
             MainMenuPage, EntertainmentMenuPage,  SettingsMenuPage,
-            TriviaGamePage, TriviaMenuPage, LibraryMenu, GamesPage, CommunicationPageMenu
+            LibraryMenu, GamesPage, CommunicationPageMenu
           
         )):
             speak(self.buttons[self.current_button_index]["text"])
@@ -1300,8 +1300,7 @@ class EntertainmentMenuPage(MenuFrame):
             ("Music", lambda: self.parent.show_frame(lambda p: LibraryMenu(p, self.parent.organized_links.get("music", {}), "genre", parent_key="music")), "Music"),
             ("Audio Books", lambda: self.parent.show_frame(lambda p: LibraryMenu(p, self.parent.organized_links.get("audiobooks", {}), "genre", parent_key="audiobooks")), "Audio Books"),
             ("Live Streams", lambda: self.parent.show_frame(lambda p: LibraryMenu(p, self.parent.organized_links.get("live", {}), "genre", parent_key="live")), "Live Streams"),
-            ("Games", lambda: parent.show_frame(GamesPage), "Games"),
-            ("Trivia", lambda: parent.show_frame(TriviaMenuPage), "Trivia Game")
+            ("Games", lambda: parent.show_frame(GamesPage), "Games")
         ]
         self.create_button_grid(buttons, columns=2)
 
@@ -1351,7 +1350,7 @@ class GamesPage(MenuFrame):
             ("Word Jumble", lambda: self.open_game("wordjumble"), "Word Jumble"),
             ("Tower Defense", lambda: self.open_game("towerdefense"), "Tower Defense"),
             ("Baseball", lambda: self.open_game("baseball"), "Baseball"),
-            ("Game 7", lambda: self.coming_soon("Game 7"), "Game 7"),
+            ("Trivia", lambda: self.open_game("trivia"), "Trivia"),
             ("Game 8", lambda: self.coming_soon("Game 8"), "Game 8"),
         ]
         self.create_button_grid(buttons)
@@ -1396,8 +1395,8 @@ class GamesPage(MenuFrame):
             # Launch the script with its own directory as the working directory.
             subprocess.Popen([sys.executable, script_path],
                             cwd=os.path.dirname(script_path))
-            # Optionally close the current app (if desired).
-            self.master.destroy()
+            # Minimize the main app instead of closing it
+            self.master.iconify()
         except Exception as e:
             print(f"Failed to open {game_title}: {e}")
 

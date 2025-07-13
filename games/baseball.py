@@ -283,9 +283,20 @@ class BaseballGame:
             self.reset_game_state()
             self.start_gameplay()
         elif sel == "Exit Game":
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
-            subprocess.Popen(["python", comm_v9_path])
+            try:
+                # Try to restore the main app window first
+                hwnd = win32gui.FindWindow(None, "Accessible Menu")
+                if hwnd:
+                    # Restore the window from minimized state
+                    win32gui.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    win32gui.SetForegroundWindow(hwnd)
+                else:
+                    # If window not found, launch the main app
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
+                    subprocess.Popen(["python", comm_v9_path])
+            except Exception as e:
+                print("Failed to restore main app:", e)
             self.root.quit()
             quit()
               

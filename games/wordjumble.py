@@ -556,9 +556,20 @@ class WordJumbleGame(tk.Tk):
         # Wait for the TTS thread to finish.
         self.tts_thread.join(timeout=2)
         self.destroy()
-        current_dir = os.path.dirname(__file__)
-        comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
-        subprocess.Popen([sys.executable, comm_v9_path])
+        try:
+            # Try to restore the main app window first
+            hwnd = win32gui.FindWindow(None, "Accessible Menu")
+            if hwnd:
+                # Restore the window from minimized state
+                win32gui.ShowWindow(hwnd, 9)  # SW_RESTORE
+                win32gui.SetForegroundWindow(hwnd)
+            else:
+                # If window not found, launch the main app
+                current_dir = os.path.dirname(__file__)
+                comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
+                subprocess.Popen([sys.executable, comm_v9_path])
+        except Exception as e:
+            print("Failed to restore main app:", e)
 
     # ---------------- Remove Letter Option (via Pause Menu) ----------------
     def remove_last_letter_option(self):

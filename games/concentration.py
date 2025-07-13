@@ -519,11 +519,19 @@ class MemoryGame(tk.Tk):
     def on_exit(self):
         self.destroy()
         try:
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            script_path = os.path.join(project_root, "Comm-v9.py")
-            subprocess.Popen([sys.executable, script_path])
+            # Try to restore the main app window first
+            hwnd = win32gui.FindWindow(None, "Accessible Menu")
+            if hwnd:
+                # Restore the window from minimized state
+                win32gui.ShowWindow(hwnd, 9)  # SW_RESTORE
+                win32gui.SetForegroundWindow(hwnd)
+            else:
+                # If window not found, launch the main app
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                script_path = os.path.join(project_root, "comm-v9.py")
+                subprocess.Popen([sys.executable, script_path])
         except Exception as e:
-            print("Failed to launch Comm-v9.py:", e)
+            print("Failed to restore main app:", e)
 
 if __name__ == "__main__":
     app = MemoryGame()
