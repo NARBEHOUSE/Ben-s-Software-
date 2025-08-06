@@ -37,9 +37,9 @@ classifiers = [
     "Topic :: Communications",
     "Topic :: Games/Entertainment",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
-    "pyttsx3>=2.90",
+    "py3-tts-wrapper[sapi,espeak,googletrans]>=0.10.20",
     "pyautogui>=0.9.54",
     "pynput>=1.7.6",
     "psutil>=5.9.0",
