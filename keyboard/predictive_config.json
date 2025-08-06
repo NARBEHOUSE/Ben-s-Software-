@@ -1,0 +1,13 @@
+{
+    "online_mode_enabled": true,
+    "api_timeout": 5,
+    "api_max_retries": 2,
+    "api_vocabulary": "100k",
+    "api_safe_mode": true,
+    "network_check_interval": 30,
+    "cache_ttl": 300,
+    "merge_strategy": "weighted",
+    "api_weight": 0.7,
+    "offline_weight": 0.3,
+    "debug_logging": false
+}
