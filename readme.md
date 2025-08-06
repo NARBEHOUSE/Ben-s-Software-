@@ -36,7 +36,13 @@ This project enhances accessibility for individuals with physical challenges, su
   - Restart Computer
   - Shut Down Computer
 - **Quick Phrase Method**: Integrated into the keyboard’s layout menu.
-- **Predictive Text**: Allows faster and more intuitive text entry.
+- **Enhanced Predictive Text**:
+  - **Hybrid System**: Combines offline n-gram predictions with online API integration
+  - **Offline Mode**: Local n-gram analysis for reliable predictions without internet
+  - **Online Mode**: Integration with imagineville.org API for enhanced predictions
+  - **Intelligent Merging**: Configurable strategies for combining offline and online predictions
+  - **Automatic Fallback**: Gracefully falls back to offline mode when network is unavailable
+  - **Configurable Settings**: Customizable API timeouts, merge strategies, and caching
 - **Chrome Auto-Close**: Chrome minimizes or closes when needed. To close Chrome using the buttons, press `Enter-Enter-Enter`.
 - **On-Screen Keyboard**:
   - Includes volume up and volume down button controls.
@@ -68,18 +74,71 @@ This project enhances accessibility for individuals with physical challenges, su
 
 ## Installation
 
+This project uses [UV](https://docs.astral.sh/uv/) for fast Python package management and project setup.
+
+### Prerequisites
+
+1. **Install UV** (if not already installed):
+   ```bash
+   # On macOS and Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+
+   # On Windows
+   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+   # Or with pip
+   pip install uv
+   ```
+
+2. **Python 3.8+** is required (UV will manage this automatically)
+
+### Setup and Installation
+
 ```bash
 # Clone this repository
-git clone https://github.com/acroz3n/ben-s-software.git
+git clone https://github.com/NARBEHOUSE/Ben-s-Software-.git
 
 # Navigate to the project directory
-cd ben-accessibility-software
+cd Ben-s-Software-
 
-# Install required dependencies
-pip install -r requirements.txt
+# Create virtual environment and install dependencies
+uv sync
 
-# Run the application
-comm-v9.py
+# Activate the virtual environment
+# On Windows:
+.venv\Scripts\activate
+# On macOS/Linux:
+source .venv/bin/activate
+
+# Run the main application
+python comm-v10.py
+
+# Or run the keyboard application
+python keyboard/keyboard.py
+```
+
+### Alternative Installation Methods
+
+#### Using UV Run (No Virtual Environment)
+```bash
+# Run directly with UV (automatically manages dependencies)
+uv run comm-v10.py
+uv run keyboard/keyboard.py
+```
+
+#### Development Installation
+```bash
+# Install with development dependencies
+uv sync --extra dev
+
+# Run tests
+uv run pytest
+
+# Format code
+uv run black .
+
+# Type checking
+uv run mypy .
 ```
 
 ## Usage
@@ -99,22 +158,140 @@ comm-v9.py
 
 ## Configuration
 
+### Media and Games
 - **Shows List**: Update `shows.xlsx` to add new shows.
 - **Trivia Questions**: Update `trivia_questions.xlsx` for new trivia categories and questions.
 - **Word Jumble**: Update `wordjumble.xlsx` for new words in the jumble game (2-3-4-5-6-7-8 letter words, follow pattern of input).
 
+### Predictive Text Configuration
+The enhanced predictive text system can be configured via `keyboard/predictive_config.json`:
+
+```json
+{
+    "online_mode_enabled": true,
+    "api_timeout": 5,
+    "api_max_retries": 2,
+    "api_vocabulary": "100k",
+    "api_safe_mode": true,
+    "network_check_interval": 30,
+    "cache_ttl": 300,
+    "merge_strategy": "weighted",
+    "api_weight": 0.7,
+    "offline_weight": 0.3,
+    "debug_logging": false
+}
+```
+
+**Configuration Options:**
+- `online_mode_enabled`: Enable/disable online API predictions
+- `api_timeout`: Timeout for API requests (seconds)
+- `api_max_retries`: Number of retry attempts for failed API calls
+- `api_vocabulary`: Vocabulary size for API ("1k", "5k", "10k", "20k", "40k", "100k", "500k")
+- `merge_strategy`: How to combine predictions ("weighted", "api_first", "offline_first")
+- `api_weight`/`offline_weight`: Weights for weighted merge strategy
+- `debug_logging`: Enable detailed logging for troubleshooting
+
+## Project Structure
+
+```
+Ben-s-Software-/
+├── keyboard/                    # Enhanced predictive text keyboard system
+│   ├── keyboard.py             # Main keyboard interface
+│   ├── keyboard_predictive.py  # Hybrid prediction engine (offline + online)
+│   ├── predictive_config.json  # Configuration for prediction system
+│   └── test_predictive_enhanced.py  # Test suite for predictions
+├── games/                      # Entertainment and cognitive games
+│   ├── Trivia.py              # Trivia game with customizable questions
+│   ├── baseball.py            # Baseball simulation game
+│   ├── bensgolf.py            # Mini golf with Happy Gilmore sounds
+│   ├── concentration.py       # Memory matching game
+│   ├── tictactoe.py          # Classic Tic Tac Toe
+│   ├── towerdefense.py       # Tower defense strategy game
+│   └── wordjumble.py         # Word unscrambling game
+├── data/                      # Configuration and data files
+│   ├── communication.xlsx    # Communication phrases and shortcuts
+│   ├── shows.xlsx            # Media content tracking
+│   ├── trivia_questions.xlsx # Trivia game questions
+│   └── wordjumble.xlsx       # Word jumble game data
+├── images/                   # UI images and icons
+├── soundfx/                  # Audio files for games and feedback
+├── comm-v10.py              # Main application entry point
+├── pyproject.toml           # UV project configuration
+└── readme.md               # This file
+```
+
 ## Dependencies
 
-- **Python 3.8+**
-- **PyAutoGUI**
-- **PyTTSx3** (Text-to-Speech)
-- **Flask** (Optional for Web Interface)
-- **Pygame** (For future game development)
-- **Pymunk** (For physics-based interactions in future games)
+All dependencies are managed through UV and defined in `pyproject.toml`:
+
+- **Python 3.8+** (automatically managed by UV)
+- **PyAutoGUI** - GUI automation and control
+- **PyTTSx3** - Text-to-Speech functionality
+- **pynput** - Input monitoring and control
+- **psutil** - System process management
+- **requests** - HTTP requests for online predictions
+- **pywin32** - Windows-specific functionality (Windows only)
+- **pandas** - Data manipulation for Excel files
+- **pygame** - Game development framework
+- **pymunk** - Physics engine for games
+
+## Troubleshooting
+
+### Common Issues
+
+**UV Installation Issues:**
+- Make sure UV is properly installed and in your PATH
+- On Windows: `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
+- On macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+**Dependency Issues:**
+- Run `uv sync` to ensure all dependencies are installed
+- For development dependencies: `uv sync --extra dev`
+- Clear cache if needed: `uv cache clean`
+
+**Predictive Text Issues:**
+- Check network connectivity for online predictions
+- Verify `keyboard/predictive_config.json` settings
+- Run tests: `uv run keyboard/test_predictive_enhanced.py`
+- Enable debug logging in config for detailed troubleshooting
+
+**Windows-Specific Issues:**
+- Ensure pywin32 is properly installed (handled automatically by UV)
+- Run as administrator if needed for system-level access
+- Use the provided `run.bat` for easier Windows execution
+
+**Permission Issues:**
+- Some features may require elevated permissions
+- Ensure the application has access to input devices
+- Check antivirus software isn't blocking the application
+
+### Getting Help
+
+1. **Check the logs** - Enable debug logging in predictive text config
+2. **Run the test suite** - `uv run keyboard/test_predictive_enhanced.py`
+3. **Verify dependencies** - `uv run run.py` checks all dependencies
+4. **Check GitHub Issues** - [Report bugs or request features](https://github.com/NARBEHOUSE/Ben-s-Software-/issues)
 
 ## Contributing
 
 Contributions are welcome! Please fork this repository and submit a pull request.
+
+### Development Setup
+```bash
+# Clone and setup for development
+git clone https://github.com/NARBEHOUSE/Ben-s-Software-.git
+cd Ben-s-Software-
+uv sync --extra dev
+
+# Run tests
+uv run pytest
+
+# Format code
+uv run black .
+
+# Type checking
+uv run mypy .
+```
 
 ## License
 

@@ -1,9 +1,0 @@
-pyttsx3
-pyautogui
-pynput
-psutil
-requests
-pywin32
-pandas
-pygame
-pymunk
