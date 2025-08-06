@@ -2,33 +2,40 @@
 
 from datetime import datetime
 import json
-import os
+from pathlib import Path
 import threading
 import time
+from typing import Dict, List, Optional, Tuple, Any
 import urllib.error
 import urllib.parse
 import urllib.request
 
+# Constants
+CACHE_EXPIRY_SECONDS = 300  # 5 minutes
+MAX_CACHE_SIZE = 1000
+DEFAULT_TIMEOUT_SECONDS = 5
+MAX_PREDICTIONS = 10
+
 # Define paths for predictive text data
-PREDICTIVE_FILE = os.path.join(os.path.dirname(__file__), "predictive_ngrams.json")
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), "predictive_config.json")
+PREDICTIVE_FILE = Path(__file__).parent / "predictive_ngrams.json"
+CONFIG_FILE = Path(__file__).parent / "predictive_config.json"
 
 # Global variable to store JSON data (prevents reloading every keystroke)
-predictive_data = {}
+predictive_data: Dict[str, Dict[str, Any]] = {}
 
 # ------------------------------ #
 #      Configuration Settings   #
 # ------------------------------ #
 
 # Default configuration
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: Dict[str, Any] = {
     "online_mode_enabled": True,
-    "api_timeout": 5,
+    "api_timeout": DEFAULT_TIMEOUT_SECONDS,
     "api_max_retries": 2,
     "api_vocabulary": "100k",  # 1k, 5k, 10k, 20k, 40k, 100k, 500k
     "api_safe_mode": True,
     "network_check_interval": 30,
-    "cache_ttl": 300,  # 5 minutes
+    "cache_ttl": CACHE_EXPIRY_SECONDS,
     "merge_strategy": "weighted",  # "weighted", "api_first", "offline_first"
     "api_weight": 0.7,  # Weight for API predictions in weighted merge
     "offline_weight": 0.3,  # Weight for offline predictions in weighted merge
@@ -36,15 +43,20 @@ DEFAULT_CONFIG = {
 }
 
 # Global configuration
-config = DEFAULT_CONFIG.copy()
+config: Dict[str, Any] = DEFAULT_CONFIG.copy()
 
 
-def load_config():
-    """Load configuration from JSON file, creating default if not exists."""
+def load_config() -> None:
+    """Load configuration from JSON file, creating default if not exists.
+
+    Loads configuration from CONFIG_FILE and merges with defaults.
+    Creates default config file if it doesn't exist.
+    Falls back to defaults on any error.
+    """
     global config
     try:
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, encoding="utf-8") as file:
+        if CONFIG_FILE.exists():
+            with CONFIG_FILE.open(encoding="utf-8") as file:
                 loaded_config = json.load(file)
                 # Merge with defaults to handle new config options
                 config = DEFAULT_CONFIG.copy()
@@ -59,10 +71,17 @@ def load_config():
         config = DEFAULT_CONFIG.copy()
 
 
-def save_config():
-    """Save current configuration to JSON file."""
+def save_config() -> None:
+    """Save current configuration to JSON file.
+
+    Writes the current config dictionary to CONFIG_FILE in JSON format
+    with proper indentation for readability.
+
+    Raises:
+        OSError: If file cannot be written
+    """
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as file:
+        with CONFIG_FILE.open("w", encoding="utf-8") as file:
             json.dump(config, file, indent=4)
     except OSError as e:
         print(f"⚠️ Config save error: {e}")
@@ -85,14 +104,25 @@ def is_online_mode_enabled():
 
 
 # Load JSON data once and ensure all words are uppercase
-def load_json():
+def load_json() -> None:
+    """Load predictive text data from JSON file.
+
+    Loads n-gram data from PREDICTIVE_FILE. Creates empty structure
+    if file doesn't exist or is empty. Falls back to empty structure
+    on any error.
+
+    Updates global predictive_data dictionary with:
+    - frequent_words: Dictionary of word frequencies
+    - bigrams: Dictionary of two-word sequences
+    - trigrams: Dictionary of three-word sequences
+    """
     global predictive_data
-    if not os.path.exists(PREDICTIVE_FILE) or os.stat(PREDICTIVE_FILE).st_size == 0:
+    if not PREDICTIVE_FILE.exists() or PREDICTIVE_FILE.stat().st_size == 0:
         predictive_data = {"frequent_words": {}, "bigrams": {}, "trigrams": {}}
         return
 
     try:
-        with open(PREDICTIVE_FILE, encoding="utf-8") as file:
+        with PREDICTIVE_FILE.open(encoding="utf-8") as file:
             predictive_data = json.load(file)
 
         # Convert all words to uppercase for consistency
@@ -115,8 +145,17 @@ def load_json():
 
 
 # Save JSON data
-def save_json():
-    with open(PREDICTIVE_FILE, "w", encoding="utf-8") as file:
+def save_json() -> None:
+    """Save predictive text data to JSON file.
+
+    Writes the current predictive_data dictionary to PREDICTIVE_FILE
+    in JSON format with proper indentation for readability.
+
+    Raises:
+        OSError: If file cannot be written
+        json.JSONEncodeError: If data cannot be serialized
+    """
+    with PREDICTIVE_FILE.open("w", encoding="utf-8") as file:
         json.dump(predictive_data, file, indent=4)
 
 

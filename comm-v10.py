@@ -5,12 +5,13 @@ import ctypes  # For Windows-specific focus handling
 from functools import partial
 import json
 import logging
-import os
+from pathlib import Path
 import platform
 import subprocess
 import threading
 import time
 import tkinter as tk
+from typing import Dict, List, Optional, Tuple, Any, Union
 
 import pandas as pd
 import pyautogui
@@ -21,6 +22,14 @@ import win32gui
 import win32process
 
 from shared.utils import speak
+
+# Constants
+CHROME_EXECUTABLE = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+SPOTIFY_PLAY_IMAGE = "spotifyplay.png"
+KEYBOARD_SCRIPT = "keyboard.py"
+COMM_SCRIPT_V9 = "comm-v9.py"
+DEFAULT_TIMEOUT = 12  # seconds
+IMAGE_CONFIDENCE = 0.8
 
 
 def monitor_app_focus(app_title="Accessible Menu"):
@@ -234,25 +243,37 @@ import threading
 import time
 import urllib.parse
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-LAST_WATCHED_FILE = os.path.join(DATA_DIR, "last_watched.json")
+DATA_DIR = Path(__file__).parent / "data"
+LAST_WATCHED_FILE = DATA_DIR / "last_watched.json"
 
 
-# Function to load the last_watched.json data
-def load_last_watched():
-    if os.path.exists(LAST_WATCHED_FILE):
-        with open(LAST_WATCHED_FILE) as f:
-            try:
+def load_last_watched() -> Dict[str, Any]:
+    """Load the last_watched.json data.
+
+    Returns:
+        Dictionary containing last watched data, empty dict if file doesn't exist
+        or contains invalid JSON.
+    """
+    if LAST_WATCHED_FILE.exists():
+        try:
+            with LAST_WATCHED_FILE.open() as f:
                 return json.load(f)
-            except json.JSONDecodeError:
-                return {}
+        except json.JSONDecodeError:
+            return {}
     return {}
 
 
-# Function to save the last_watched data to the file
-def save_last_watched(data):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(LAST_WATCHED_FILE, "w") as f:
+def save_last_watched(data: Dict[str, Any]) -> None:
+    """Save the last_watched data to file.
+
+    Args:
+        data: Dictionary containing last watched data to save
+
+    Raises:
+        OSError: If directory cannot be created or file cannot be written
+    """
+    DATA_DIR.mkdir(exist_ok=True)
+    with LAST_WATCHED_FILE.open("w") as f:
         json.dump(data, f, indent=2)
 
 
@@ -290,18 +311,24 @@ threading.Thread(target=start_url_server, daemon=True).start()
 # Imports moved to top of file
 
 
-def load_links(file_path="shows.xlsx"):
-    """
-    Reads links data from an Excel file and organizes it by type and genre.
+def load_links(file_path: str = "shows.xlsx") -> Dict[str, Dict[str, List[Tuple[str, str]]]]:
+    """Reads links data from an Excel file and organizes it by type and genre.
+
     The Excel file should have columns such as:
-      - type
-      - genre
-      - title
-      - url
-    Returns a nested defaultdict structure.
+      - type: Content type (e.g., "TV Shows", "Movies")
+      - genre: Content genre (e.g., "Comedy", "Drama")
+      - title: Content title
+      - url: Content URL
+
+    Args:
+        file_path: Name of Excel file in data directory
+
+    Returns:
+        Nested dictionary structure: {type: {genre: [(title, url), ...]}}
+        Empty dict if file cannot be loaded.
     """
     # Construct the absolute file path if needed.
-    abs_path = os.path.join(os.path.dirname(__file__), "data", file_path)
+    abs_path = Path(__file__).parent / "data" / file_path
 
     try:
         # Read the Excel file into a DataFrame.
@@ -328,27 +355,34 @@ def load_links(file_path="shows.xlsx"):
     return organized
 
 
-def load_communication_phrases(file_path="communication.xlsx"):
-    """
-    Loads phrases from communication.xlsx in the format:
+def load_communication_phrases(file_path: str = "communication.xlsx") -> Dict[str, List[Tuple[str, str]]]:
+    """Loads phrases from communication.xlsx.
+
+    Expected Excel format:
     | Category | Display | Text to Speech |
-    Returns a dict: { "Category1": [(label1, speak1), (label2, speak2), ...], ... }
+
+    Args:
+        file_path: Name of Excel file in data directory
+
+    Returns:
+        Dictionary mapping categories to list of (display_text, speech_text) tuples.
+        Empty dict if file cannot be loaded.
     """
-    abs_path = os.path.join(os.path.dirname(__file__), "data", file_path)
+    abs_path = Path(__file__).parent / "data" / file_path
     try:
         df = pd.read_excel(abs_path)
     except Exception as e:
         print(f"[ERROR] Failed to load communication.xlsx: {e}")
         return {}
 
-    phrases_by_category = defaultdict(list)
+    phrases_by_category: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
     for _, row in df.iterrows():
         category = str(row["Category"]).strip()
         label = str(row["Display"]).strip()
         speak_text = str(row["Text to Speech"]).strip()
         if category and label and speak_text:
             phrases_by_category[category].append((label, speak_text))
-    return phrases_by_category
+    return dict(phrases_by_category)
 
 
 class KeySequenceListener:
@@ -871,12 +905,13 @@ class MenuFrame(tk.Frame):
         Finally, it sends Alt+S to shuffle.
         """
         # Define the path to Chrome.
-        chrome_path = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-        if not os.path.exists(chrome_path):
+        chrome_path = Path(CHROME_EXECUTABLE)
+        if not chrome_path.exists():
+            import os
             os.startfile(playlist_url)
         else:
             args = [
-                chrome_path,
+                str(chrome_path),
                 "--autoplay-policy=no-user-gesture-required",
                 "--start-fullscreen",
                 playlist_url,
@@ -885,20 +920,18 @@ class MenuFrame(tk.Frame):
 
         # Wait for the page to load.
         print("[DEBUG] Waiting for Chrome/Spotify page to load...")
-        time.sleep(12)
+        time.sleep(DEFAULT_TIMEOUT)
 
         # Define the absolute path to your reference image.
-        play_image_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "images", "spotifyplay.png"
-        )
-        if not os.path.exists(play_image_path):
+        play_image_path = Path(__file__).parent / "images" / SPOTIFY_PLAY_IMAGE
+        if not play_image_path.exists():
             print(f"[DEBUG] Reference image not found: {play_image_path}")
             location = None
         else:
             print(f"[DEBUG] Searching for play button using image: {play_image_path}")
             try:
                 location = pyautogui.locateCenterOnScreen(
-                    play_image_path, confidence=0.8
+                    str(play_image_path), confidence=IMAGE_CONFIDENCE
                 )
             except Exception as e:
                 print(f"[ERROR] Exception during first image search: {e}")
@@ -1267,13 +1300,17 @@ class CommunicationPageMenu(MenuFrame):
         self.page += 1
         self.load_buttons()
 
-    def open_keyboard_app(self):
+    def open_keyboard_app(self) -> None:
+        """Open the keyboard application.
+
+        Launches the keyboard.py script in a subprocess and closes the main window.
+
+        Raises:
+            Exception: If keyboard script cannot be launched
+        """
         try:
-            script_name = "keyboard.py"
-            script_path = os.path.join(
-                os.path.dirname(__file__), "keyboard", script_name
-            )
-            subprocess.Popen([sys.executable, script_path])
+            script_path = Path(__file__).parent / "keyboard" / KEYBOARD_SCRIPT
+            subprocess.Popen([sys.executable, str(script_path)])
             self.master.destroy()
         except Exception as e:
             print(f"Failed to open keyboard: {e}")
@@ -1519,11 +1556,10 @@ class EntertainmentMenuPage(MenuFrame):
 class GamesPage(MenuFrame):
     """Games menu that auto‑populates from Python scripts inside ./games."""
 
-    GAMES_DIR = os.path.join(os.path.dirname(__file__), "games")
-
     def __init__(self, parent):
         super().__init__(parent, "Games")
         self.parent = parent
+        self.games_dir = Path(__file__).parent / "games"
 
         # Build button list dynamically: Back + discovered games
         buttons = [("Back", lambda: parent.show_frame(EntertainmentMenuPage), "Back")]
@@ -1532,30 +1568,43 @@ class GamesPage(MenuFrame):
         self.create_button_grid(buttons)
 
     # ───────────────────────── helpers ──────────────────────────
-    def _discover_games(self):
-        """Return a list of (label, command, speak_text) tuples for each game script."""
+    def _discover_games(self) -> List[Tuple[str, callable, str]]:
+        """Return a list of (label, command, speak_text) tuples for each game script.
+
+        Scans the games directory for Python files and creates menu entries.
+        Excludes files starting with '__' and non-Python files.
+
+        Returns:
+            List of tuples containing (display_name, launch_function, speech_text)
+        """
         games = []
 
-        if not os.path.isdir(self.GAMES_DIR):
-            print(f"[GamesPage] Folder not found: {self.GAMES_DIR}")
+        if not self.games_dir.is_dir():
+            print(f"[GamesPage] Folder not found: {self.games_dir}")
             return games
 
-        for file in sorted(os.listdir(self.GAMES_DIR)):
+        for file_path in sorted(self.games_dir.iterdir()):
             # Only include Python scripts; skip dunders and non‑py files
-            if not file.endswith(".py") or file.startswith("__"):
+            if not file_path.suffix == ".py" or file_path.name.startswith("__"):
                 continue
 
-            script_path = os.path.join(self.GAMES_DIR, file)
-            title = self._filename_to_title(file)
-            cmd = partial(self.open_game, script_path, title)
+            title = self._filename_to_title(file_path.name)
+            cmd = partial(self.open_game, str(file_path), title)
             games.append((title, cmd, title))
 
         return games
 
     @staticmethod
-    def _filename_to_title(filename):
-        """Convert "tic_tac_toe.py" → "Tic Tac Toe"."""
-        base = os.path.splitext(filename)[0]
+    def _filename_to_title(filename: str) -> str:
+        """Convert "tic_tac_toe.py" → "Tic Tac Toe".
+
+        Args:
+            filename: Python filename with .py extension
+
+        Returns:
+            Human-readable title with proper capitalization
+        """
+        base = Path(filename).stem
         return base.replace("_", " ").title()
 
     # ───────────────────────── UI helpers ───────────────────────
@@ -1587,11 +1636,22 @@ class GamesPage(MenuFrame):
             grid.columnconfigure(c, weight=1)
 
     # ───────────────────────── actions ──────────────────────────
-    def open_game(self, script_path, title):
+    def open_game(self, script_path: str, title: str) -> None:
+        """Launch a game script in a subprocess.
+
+        Args:
+            script_path: Full path to the Python game script
+            title: Human-readable game title for logging
+
+        Closes the main application window after launching the game
+        to allow fullscreen gameplay.
+        """
         try:
+            script_path_obj = Path(script_path)
             print(f"[GamesPage] Launching: {title} → {script_path}")
             subprocess.Popen(
-                [sys.executable, script_path], cwd=os.path.dirname(script_path)
+                [sys.executable, str(script_path_obj)],
+                cwd=str(script_path_obj.parent)
             )
             self.parent.destroy()  # Close main app so game runs fullscreen
         except Exception as e:

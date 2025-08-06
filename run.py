@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 # © 2025 NARBE House – Licensed under CC BY-NC 4.0
 
-"""
-Simple launcher script for Ben's Accessibility Software.
+"""Simple launcher script for Ben's Accessibility Software.
+
 Provides easy access to main applications and utilities.
 """
 
-import os
+from pathlib import Path
 import subprocess
 import sys
+from typing import Dict, List, Optional
+
+# Constants
+MAIN_SCRIPT = "comm-v10.py"
+KEYBOARD_SCRIPT = "keyboard/keyboard.py"
 
 
 def main():
@@ -69,17 +74,28 @@ def main():
             continue
 
 
-def run_script(script_path):
-    """Run a Python script using the current Python interpreter."""
+def run_script(script_path: str) -> None:
+    """Run a Python script using the current Python interpreter.
+
+    Args:
+        script_path: Relative path to the Python script to execute
+
+    Raises:
+        Exception: If script execution fails
+    """
     try:
+        script_path_obj = Path(script_path)
+
         # Check if file exists
-        if not os.path.exists(script_path):
+        if not script_path_obj.exists():
             print(f"❌ Error: {script_path} not found!")
             return
 
         # Run the script
         result = subprocess.run(
-            [sys.executable, script_path], cwd=os.getcwd(), capture_output=False
+            [sys.executable, str(script_path_obj)],
+            cwd=Path.cwd(),
+            capture_output=False
         )
 
         if result.returncode != 0:
@@ -91,29 +107,38 @@ def run_script(script_path):
         print(f"❌ Error running {script_path}: {e}")
 
 
-def check_dependencies():
-    """Check if required dependencies are available."""
-    try:
-        import pandas
-        import psutil
-        import pyautogui
-        import pygame
-        import pymunk
-        import pynput
-        import pyttsx3
-        import requests
+def check_dependencies() -> bool:
+    """Check if required dependencies are available.
 
-        print("✅ All dependencies are available")
-        return True
-    except ImportError as e:
-        print(f"❌ Missing dependency: {e}")
+    Attempts to import all critical dependencies and reports status.
+
+    Returns:
+        True if all dependencies are available, False otherwise
+    """
+    dependencies = [
+        "pandas", "psutil", "pyautogui", "pygame",
+        "pymunk", "pynput", "pyttsx3", "requests"
+    ]
+
+    missing = []
+    for dep in dependencies:
+        try:
+            __import__(dep)
+        except ImportError:
+            missing.append(dep)
+
+    if missing:
+        print(f"❌ Missing dependencies: {', '.join(missing)}")
         print("💡 Run 'uv sync' to install all dependencies")
         return False
+    else:
+        print("✅ All dependencies are available")
+        return True
 
 
 if __name__ == "__main__":
     # Check if we're in the right directory
-    if not os.path.exists("comm-v10.py"):
+    if not Path(MAIN_SCRIPT).exists():
         print("❌ Error: Please run this script from the Ben-s-Software- directory")
         sys.exit(1)
 

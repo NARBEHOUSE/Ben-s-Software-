@@ -1,5 +1,5 @@
 import ctypes
-import os
+from pathlib import Path
 import queue
 import random
 import re
@@ -9,10 +9,15 @@ import threading
 import time
 import tkinter as tk
 from tkinter import messagebox
+from typing import List, Dict, Optional, Tuple
 
 import pandas as pd
 import pyttsx3
 import win32gui
+
+# Constants
+COMM_SCRIPT = "comm-v9.py"
+WORDS_DATA_FILE = "wordjumble.xlsx"
 
 
 class WordJumbleGame(tk.Tk):
@@ -29,11 +34,9 @@ class WordJumbleGame(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.exit_game)
 
         # Load the Excel file.
-        excel_path = os.path.join(
-            os.path.dirname(__file__), "..", "data", "wordjumble.xlsx"
-        )
+        excel_path = Path(__file__).parent.parent / "data" / "wordjumble.xlsx"
         try:
-            self.words_data = pd.read_excel(excel_path)
+            self.words_data = pd.read_excel(str(excel_path))
             self.words_data.columns = self.words_data.columns.str.strip().str.lower()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load {excel_path}: {e}")
@@ -672,9 +675,8 @@ class WordJumbleGame(tk.Tk):
         # Wait for the TTS thread to finish.
         self.tts_thread.join(timeout=2)
         self.destroy()
-        current_dir = os.path.dirname(__file__)
-        comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
-        subprocess.Popen([sys.executable, comm_v9_path])
+        comm_script_path = Path(__file__).parent.parent / COMM_SCRIPT
+        subprocess.Popen([sys.executable, str(comm_script_path)])
 
     # ---------------- Remove Letter Option (via Pause Menu) ----------------
     def remove_last_letter_option(self):
