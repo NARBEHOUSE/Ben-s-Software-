@@ -1,14 +1,15 @@
-import tkinter as tk
-from functools import partial
-import random
-import time
-import subprocess
-import pyttsx3
-import threading
-import os
-import sys
-import win32gui
 import ctypes
+from functools import partial
+import os
+import random
+import subprocess
+import sys
+import threading
+import time
+import tkinter as tk
+
+import pyttsx3
+import win32gui
 
 
 class TicTacToeGame(tk.Tk):
@@ -21,9 +22,13 @@ class TicTacToeGame(tk.Tk):
         # Top frame for close and minimize buttons (always visible)
         top_frame = tk.Frame(self, bg="lightgray")
         top_frame.pack(side="top", fill="x")
-        minimize_btn = tk.Button(top_frame, text="_", command=self.iconify, font=("Arial", 12))
+        minimize_btn = tk.Button(
+            top_frame, text="_", command=self.iconify, font=("Arial", 12)
+        )
         minimize_btn.pack(side="right", padx=5, pady=5)
-        close_btn = tk.Button(top_frame, text="X", command=self.on_exit, font=("Arial", 12))
+        close_btn = tk.Button(
+            top_frame, text="X", command=self.on_exit, font=("Arial", 12)
+        )
         close_btn.pack(side="right", padx=5, pady=5)
 
         # Initialize TTS engine and a lock for thread-safety.
@@ -31,7 +36,9 @@ class TicTacToeGame(tk.Tk):
         self.tts_lock = threading.Lock()
 
         # Scanning state variables:
-        self.current_mode = None  # Modes: "main_menu", "game", "pause", "game_over_menu"
+        self.current_mode = (
+            None  # Modes: "main_menu", "game", "pause", "game_over_menu"
+        )
         # For main menu and pause menus:
         self.menu_buttons = []
         self.menu_scan_index = 0
@@ -55,20 +62,24 @@ class TicTacToeGame(tk.Tk):
         self.pause_triggered = False
 
         # Game state variables:
-        self.board = {}    # Mapping (r, c) -> "", "X", or "O"
+        self.board = {}  # Mapping (r, c) -> "", "X", or "O"
         self.buttons = {}  # Mapping (r, c) -> Button widget
         self.current_turn = "X"  # X always starts; in single-player mode the starting turn will be randomized.
-        self.game_mode = None    # "single" or "two"
+        self.game_mode = None  # "single" or "two"
 
         # Container frame for switching between screens:
         self.container = tk.Frame(self, bg="blue")
         self.container.pack(expand=True, fill="both")
         self.current_frame = None
-        
-        self.monitor_focus_thread = threading.Thread(target=self.monitor_focus, daemon=True)
+
+        self.monitor_focus_thread = threading.Thread(
+            target=self.monitor_focus, daemon=True
+        )
         self.monitor_focus_thread.start()
 
-        self.monitor_start_menu_thread = threading.Thread(target=self.monitor_start_menu, daemon=True)
+        self.monitor_start_menu_thread = threading.Thread(
+            target=self.monitor_start_menu, daemon=True
+        )
         self.monitor_start_menu_thread.start()
 
         # Bind scanning keys:
@@ -79,7 +90,7 @@ class TicTacToeGame(tk.Tk):
 
         self.show_main_menu()
 
-# ---------------- Monitor Focus & Close Start Menu-------------
+    # ---------------- Monitor Focus & Close Start Menu-------------
 
     def monitor_focus(self):
         """Ensure this application stays in focus."""
@@ -109,8 +120,12 @@ class TicTacToeGame(tk.Tk):
 
     def is_start_menu_open(self):
         """Check if the Start Menu is currently open and focused."""
-        hwnd = win32gui.GetForegroundWindow()  # Get the handle of the active (focused) window
-        class_name = win32gui.GetClassName(hwnd)  # Get the class name of the active window
+        hwnd = (
+            win32gui.GetForegroundWindow()
+        )  # Get the handle of the active (focused) window
+        class_name = win32gui.GetClassName(
+            hwnd
+        )  # Get the class name of the active window
         return class_name in ["Shell_TrayWnd", "Windows.UI.Core.CoreWindow"]
 
     def monitor_start_menu(self):
@@ -135,9 +150,14 @@ class TicTacToeGame(tk.Tk):
 
     # --- Helper for Creating Buttons with TTS (for menus/pauses) ---
     def create_tts_button(self, parent, text, command, font_size=36, pady=10):
-        btn = tk.Button(parent, text=text, command=command,
-                        font=("Arial", font_size),
-                        bg="gray", activebackground="gray")
+        btn = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            font=("Arial", font_size),
+            bg="gray",
+            activebackground="gray",
+        )
         btn.pack(pady=pady)
         btn.bind("<Enter>", lambda e: self.say_text(text))
         return btn
@@ -149,15 +169,22 @@ class TicTacToeGame(tk.Tk):
             self.current_frame.destroy()
         self.current_frame = tk.Frame(self.container, bg="blue")
         self.current_frame.pack(expand=True, fill="both")
-        title = tk.Label(self.current_frame, text="TIC TAC TOE", font=("Arial Black", 60),
-                         bg="blue", fg="white")
+        title = tk.Label(
+            self.current_frame,
+            text="TIC TAC TOE",
+            font=("Arial Black", 60),
+            bg="blue",
+            fg="white",
+        )
         title.pack(pady=20)
         self.menu_buttons = []
-        btn = self.create_tts_button(self.current_frame, "Single Player",
-                                     lambda: self.start_game("single"))
+        btn = self.create_tts_button(
+            self.current_frame, "Single Player", lambda: self.start_game("single")
+        )
         self.menu_buttons.append(btn)
-        btn = self.create_tts_button(self.current_frame, "2-Player",
-                                     lambda: self.start_game("two"))
+        btn = self.create_tts_button(
+            self.current_frame, "2-Player", lambda: self.start_game("two")
+        )
         self.menu_buttons.append(btn)
         btn = self.create_tts_button(self.current_frame, "Exit", self.on_exit)
         self.menu_buttons.append(btn)
@@ -207,16 +234,33 @@ class TicTacToeGame(tk.Tk):
             for c in range(self.cols):
                 self.board[(r, c)] = ""
                 # Create a cell frame with a solid border.
-                cell_frame = tk.Frame(board_frame, width=cell_width, height=cell_height,
-                                    bg=board_bg, bd=2, relief="solid")
+                cell_frame = tk.Frame(
+                    board_frame,
+                    width=cell_width,
+                    height=cell_height,
+                    bg=board_bg,
+                    bd=2,
+                    relief="solid",
+                )
                 cell_frame.grid(row=r, column=c)
                 cell_frame.grid_propagate(False)
                 # Create a button that is slightly smaller than the cell so the border is visible.
-                btn = tk.Button(cell_frame, text="", font=("Arial", 96),
-                                bg="dark gray", fg="black", activebackground="dark gray",
-                                command=partial(self.select_cell, r, c))
-                btn.place(relx=0.5, rely=0.5, anchor="center",
-                        width=cell_width-4, height=cell_height-4)
+                btn = tk.Button(
+                    cell_frame,
+                    text="",
+                    font=("Arial", 96),
+                    bg="dark gray",
+                    fg="black",
+                    activebackground="dark gray",
+                    command=partial(self.select_cell, r, c),
+                )
+                btn.place(
+                    relx=0.5,
+                    rely=0.5,
+                    anchor="center",
+                    width=cell_width - 4,
+                    height=cell_height - 4,
+                )
                 self.buttons[(r, c)] = btn
                 self.game_board_order.append((r, c))
         # For single-player mode, randomly decide who starts.
@@ -226,9 +270,8 @@ class TicTacToeGame(tk.Tk):
             self.current_turn = "X"
         if mode == "single" and self.current_turn == "O":
             self.after(1000, self.computer_move)
-        else:
-            if self.current_turn == "X":
-                self.say_text("your turn")
+        elif self.current_turn == "X":
+            self.say_text("your turn")
         self.game_board_scan_index = 0
         self.update_game_board_scan_highlight()
 
@@ -244,16 +287,27 @@ class TicTacToeGame(tk.Tk):
                 default_color = "dark gray"
             # If this cell is the one being scanned, override its color with yellow.
             if idx == self.game_board_scan_index:
-                btn.config(bg="yellow", relief="raised", bd=5, activebackground="yellow")
+                btn.config(
+                    bg="yellow", relief="raised", bd=5, activebackground="yellow"
+                )
             else:
-                btn.config(bg=default_color, relief="flat", bd=0, activebackground=default_color)
+                btn.config(
+                    bg=default_color,
+                    relief="flat",
+                    bd=0,
+                    activebackground=default_color,
+                )
 
     def move_game_board_scan_forward(self):
-        self.game_board_scan_index = (self.game_board_scan_index + 1) % len(self.game_board_order)
+        self.game_board_scan_index = (self.game_board_scan_index + 1) % len(
+            self.game_board_order
+        )
         self.update_game_board_scan_highlight()
 
     def move_game_board_scan_backward(self):
-        self.game_board_scan_index = (self.game_board_scan_index - 1) % len(self.game_board_order)
+        self.game_board_scan_index = (self.game_board_scan_index - 1) % len(
+            self.game_board_order
+        )
         self.update_game_board_scan_highlight()
 
     def select_cell(self, r, c):
@@ -262,36 +316,40 @@ class TicTacToeGame(tk.Tk):
             return  # Not allowed in single-player mode.
         if self.board[(r, c)] != "":
             return  # Cell already marked.
-        
+
         # Mark the cell with the current turn's symbol.
         self.board[(r, c)] = self.current_turn
-        
+
         # Set tile background based on the current turn.
         if self.current_turn == "X":
             tile_color = "red"
         else:
             tile_color = "blue"
-        self.buttons[(r, c)].config(text=self.current_turn, fg="black", font=("Arial", 72),
-                                    bg=tile_color, activebackground=tile_color)
-        
+        self.buttons[(r, c)].config(
+            text=self.current_turn,
+            fg="black",
+            font=("Arial", 72),
+            bg=tile_color,
+            activebackground=tile_color,
+        )
+
         # Check for a win or tie.
         result = self.check_win()
         if result is not None:
             self.game_over_menu(result)
             return
-        
+
         # Switch turns.
         if self.current_turn == "X":
             self.current_turn = "O"
         else:
             self.current_turn = "X"
-        
+
         # In single-player mode, if it's the computer's turn, schedule its move.
         if self.game_mode == "single" and self.current_turn == "O":
             self.after(1000, self.computer_move)
-        else:
-            if self.current_turn == "X":
-                self.say_text("your turn")
+        elif self.current_turn == "X":
+            self.say_text("your turn")
 
     def computer_move(self):
         empty_cells = [(r, c) for (r, c), v in self.board.items() if v == ""]
@@ -300,15 +358,15 @@ class TicTacToeGame(tk.Tk):
         r, c = random.choice(empty_cells)
         self.board[(r, c)] = "O"
         # For O, set the tile background to blue.
-        self.buttons[(r, c)].config(text="O", fg="black", font=("Arial", 72),
-                                      bg="blue", activebackground="blue")
+        self.buttons[(r, c)].config(
+            text="O", fg="black", font=("Arial", 72), bg="blue", activebackground="blue"
+        )
         result = self.check_win()
         if result is not None:
             self.game_over_menu(result)
             return
         self.current_turn = "X"
         self.say_text("your turn")
-
 
     def check_win(self):
         b = self.board
@@ -339,17 +397,31 @@ class TicTacToeGame(tk.Tk):
         else:
             msg = f"Player {result} wins!"
         self.say_text(msg)
-        result_label = tk.Label(self.current_frame, text=msg, font=("Arial Black", 42),
-                                 fg="purple", bg="yellow")
+        result_label = tk.Label(
+            self.current_frame,
+            text=msg,
+            font=("Arial Black", 42),
+            fg="purple",
+            bg="yellow",
+        )
         result_label.place(relx=0.5, rely=0.3, anchor="center")
-        question = tk.Label(self.current_frame, text="Play again?",
-                            font=("Arial", 36), fg="black", bg="yellow")
+        question = tk.Label(
+            self.current_frame,
+            text="Play again?",
+            font=("Arial", 36),
+            fg="black",
+            bg="yellow",
+        )
         question.place(relx=0.5, rely=0.5, anchor="center")
         self.say_text("Would you like to play again?")
         self.game_over_buttons = []
-        btn_yes = self.create_tts_button(self.current_frame, "Yes", lambda: self.restart_game(), font_size=36)
+        btn_yes = self.create_tts_button(
+            self.current_frame, "Yes", lambda: self.restart_game(), font_size=36
+        )
         self.game_over_buttons.append(btn_yes)
-        btn_no = self.create_tts_button(self.current_frame, "No", self.show_main_menu, font_size=36)
+        btn_no = self.create_tts_button(
+            self.current_frame, "No", self.show_main_menu, font_size=36
+        )
         self.game_over_buttons.append(btn_no)
         self.game_over_scan_index = 0
         self.update_game_over_scan_highlight()
@@ -361,14 +433,20 @@ class TicTacToeGame(tk.Tk):
             else:
                 btn.config(bg="gray", activebackground="gray")
         if self.game_over_buttons:
-            self.say_text(self.game_over_buttons[self.game_over_scan_index].cget("text"))
+            self.say_text(
+                self.game_over_buttons[self.game_over_scan_index].cget("text")
+            )
 
     def move_game_over_scan_forward(self):
-        self.game_over_scan_index = (self.game_over_scan_index + 1) % len(self.game_over_buttons)
+        self.game_over_scan_index = (self.game_over_scan_index + 1) % len(
+            self.game_over_buttons
+        )
         self.update_game_over_scan_highlight()
 
     def move_game_over_scan_backward(self):
-        self.game_over_scan_index = (self.game_over_scan_index - 1) % len(self.game_over_buttons)
+        self.game_over_scan_index = (self.game_over_scan_index - 1) % len(
+            self.game_over_buttons
+        )
         self.update_game_over_scan_highlight()
 
     def restart_game(self):
@@ -382,15 +460,26 @@ class TicTacToeGame(tk.Tk):
         self.pause_just_opened = True
         self.pause_frame = tk.Frame(self.current_frame, bg="black")
         self.pause_frame.place(relx=0.5, rely=0.5, anchor="center")
-        label = tk.Label(self.pause_frame, text="Pause Menu", font=("Arial", 40),
-                         fg="white", bg="black")
+        label = tk.Label(
+            self.pause_frame,
+            text="Pause Menu",
+            font=("Arial", 40),
+            fg="white",
+            bg="black",
+        )
         label.pack(pady=20)
         self.pause_buttons = []
-        btn = self.create_tts_button(self.pause_frame, "Continue Game", self.continue_game, font_size=36)
+        btn = self.create_tts_button(
+            self.pause_frame, "Continue Game", self.continue_game, font_size=36
+        )
         self.pause_buttons.append(btn)
-        btn = self.create_tts_button(self.pause_frame, "Return to Menu", self.show_main_menu, font_size=36)
+        btn = self.create_tts_button(
+            self.pause_frame, "Return to Menu", self.show_main_menu, font_size=36
+        )
         self.pause_buttons.append(btn)
-        btn = self.create_tts_button(self.pause_frame, "Exit", self.on_exit, font_size=36)
+        btn = self.create_tts_button(
+            self.pause_frame, "Exit", self.on_exit, font_size=36
+        )
         self.pause_buttons.append(btn)
         self.pause_scan_index = 0
         self.update_pause_menu_scan_highlight()
@@ -448,16 +537,15 @@ class TicTacToeGame(tk.Tk):
             self.after_cancel(self.space_backwards_timer_id)
             self.space_backwards_timer_id = None
         self.spacebar_held = False
-        if not self.space_backward_active:
-            if 0.1 <= duration < 3:
-                if self.current_mode == "game":
-                    self.move_game_board_scan_forward()
-                elif self.current_mode == "main_menu":
-                    self.move_menu_scan_forward()
-                elif self.current_mode == "pause":
-                    self.move_pause_menu_scan_forward()
-                elif self.current_mode == "game_over_menu":
-                    self.move_game_over_scan_forward()
+        if not self.space_backward_active and 0.1 <= duration < 3:
+            if self.current_mode == "game":
+                self.move_game_board_scan_forward()
+            elif self.current_mode == "main_menu":
+                self.move_menu_scan_forward()
+            elif self.current_mode == "pause":
+                self.move_pause_menu_scan_forward()
+            elif self.current_mode == "game_over_menu":
+                self.move_game_over_scan_forward()
         self.space_backward_active = False
 
     def on_return_press(self, event):
@@ -506,11 +594,15 @@ class TicTacToeGame(tk.Tk):
             self.game_over_buttons[self.game_over_scan_index].invoke()
 
     def move_game_board_scan_forward(self):
-        self.game_board_scan_index = (self.game_board_scan_index + 1) % len(self.game_board_order)
+        self.game_board_scan_index = (self.game_board_scan_index + 1) % len(
+            self.game_board_order
+        )
         self.update_game_board_scan_highlight()
 
     def move_game_board_scan_backward(self):
-        self.game_board_scan_index = (self.game_board_scan_index - 1) % len(self.game_board_order)
+        self.game_board_scan_index = (self.game_board_scan_index - 1) % len(
+            self.game_board_order
+        )
         self.update_game_board_scan_highlight()
 
     def on_exit(self):
@@ -522,6 +614,7 @@ class TicTacToeGame(tk.Tk):
             subprocess.Popen([sys.executable, script_path])
         except Exception as e:
             print("Failed to launch Comm-v9.py:", e)
+
 
 if __name__ == "__main__":
     app = TicTacToeGame()

@@ -1,17 +1,19 @@
+import ctypes
 import os
+import queue
+import random
+import re
+import subprocess
+import sys
+import threading
+import time
 import tkinter as tk
 from tkinter import messagebox
+
 import pandas as pd
-import random
-import time
-import threading
 import pyttsx3
-import subprocess
-import queue
-import re
-import sys
-import ctypes
 import win32gui
+
 
 class WordJumbleGame(tk.Tk):
     def __init__(self):
@@ -27,7 +29,9 @@ class WordJumbleGame(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.exit_game)
 
         # Load the Excel file.
-        excel_path = os.path.join(os.path.dirname(__file__), "..", "data", "wordjumble.xlsx")
+        excel_path = os.path.join(
+            os.path.dirname(__file__), "..", "data", "wordjumble.xlsx"
+        )
         try:
             self.words_data = pd.read_excel(excel_path)
             self.words_data.columns = self.words_data.columns.str.strip().str.lower()
@@ -63,21 +67,21 @@ class WordJumbleGame(tk.Tk):
         # ---------------- Level and Game State Variables ----------------
         self.current_difficulty = None
         self.selected_word = ""
-        self.full_sentence = ""   # Full sentence with the target word (for TTS)
+        self.full_sentence = ""  # Full sentence with the target word (for TTS)
         self.current_selection = ""
         self.original_jumbled_letters = []
 
         # Level progression settings:
         # Each difficulty has 5 levels defined by (min_length, max_length).
         self.level_ranges = {
-            "easy": [(2,2), (3,3), (3,3), (4,4), (4,4)],
-            "medium": [(4,4), (5,5), (6,6), (6,6), (6,6)],
-            "hard": [(6,6), (7,7), (7,7), (8,8), (8,8)]
+            "easy": [(2, 2), (3, 3), (3, 3), (4, 4), (4, 4)],
+            "medium": [(4, 4), (5, 5), (6, 6), (6, 6), (6, 6)],
+            "hard": [(6, 6), (7, 7), (7, 7), (8, 8), (8, 8)],
         }
         self.level_number = None  # 1 to 5
-        self.total_attempts = 0   # Across all words in this session.
+        self.total_attempts = 0  # Across all words in this session.
         self.total_correct = 0
-        self.level_correct = 0    # Incremented only on correct answers.
+        self.level_correct = 0  # Incremented only on correct answers.
 
         # Used words: ensure uniqueness in a session.
         self.used_words = set()
@@ -85,10 +89,14 @@ class WordJumbleGame(tk.Tk):
         # Active mode: "main" (main menu), "game", or "pause"
         self.active_menu = None
 
-        self.monitor_focus_thread = threading.Thread(target=self.monitor_focus, daemon=True)
+        self.monitor_focus_thread = threading.Thread(
+            target=self.monitor_focus, daemon=True
+        )
         self.monitor_focus_thread.start()
 
-        self.monitor_start_menu_thread = threading.Thread(target=self.monitor_start_menu, daemon=True)
+        self.monitor_start_menu_thread = threading.Thread(
+            target=self.monitor_start_menu, daemon=True
+        )
         self.monitor_start_menu_thread.start()
 
         # ---------------- Build Screens ----------------
@@ -102,7 +110,6 @@ class WordJumbleGame(tk.Tk):
         self.bind("<KeyRelease-space>", self.on_space_release)
         self.bind("<KeyPress-Return>", self.on_return_press)
         self.bind("<KeyRelease-Return>", self.on_return_release)
-
 
         # ---------------- Monitor Focus & Close Start Menu-------------
 
@@ -134,8 +141,12 @@ class WordJumbleGame(tk.Tk):
 
     def is_start_menu_open(self):
         """Check if the Start Menu is currently open and focused."""
-        hwnd = win32gui.GetForegroundWindow()  # Get the handle of the active (focused) window
-        class_name = win32gui.GetClassName(hwnd)  # Get the class name of the active window
+        hwnd = (
+            win32gui.GetForegroundWindow()
+        )  # Get the handle of the active (focused) window
+        class_name = win32gui.GetClassName(
+            hwnd
+        )  # Get the class name of the active window
         return class_name in ["Shell_TrayWnd", "Windows.UI.Core.CoreWindow"]
 
     def monitor_start_menu(self):
@@ -259,22 +270,21 @@ class WordJumbleGame(tk.Tk):
             self.space_backwards_timer_id = None
         self.spacebar_held = False
         duration = time.time() - self.space_press_time if self.space_press_time else 0
-        if not self.space_backward_active:
-            if 0.1 <= duration < 3:
-                if self.active_menu == "game":
-                    self.move_game_scan_forward()
-                elif self.active_menu == "main":
-                    if self.menu_scan_index is None:
-                        self.menu_scan_index = 0
-                        self.update_menu_scan_highlight()
-                    else:
-                        self.move_menu_scan_forward()
-                elif self.active_menu == "pause":
-                    if self.pause_scan_index is None:
-                        self.pause_scan_index = 0
-                        self.update_pause_scan_highlight()
-                    else:
-                        self.move_pause_scan_forward()
+        if not self.space_backward_active and 0.1 <= duration < 3:
+            if self.active_menu == "game":
+                self.move_game_scan_forward()
+            elif self.active_menu == "main":
+                if self.menu_scan_index is None:
+                    self.menu_scan_index = 0
+                    self.update_menu_scan_highlight()
+                else:
+                    self.move_menu_scan_forward()
+            elif self.active_menu == "pause":
+                if self.pause_scan_index is None:
+                    self.pause_scan_index = 0
+                    self.update_pause_scan_highlight()
+                else:
+                    self.move_pause_scan_forward()
         self.space_backward_active = False
 
     # ---------------- Key Event Handlers (Return Key) ----------------
@@ -307,9 +317,8 @@ class WordJumbleGame(tk.Tk):
             if self.pause_triggered:
                 self.pause_triggered = False
                 return
-            if 0.1 <= duration < 3:
-                if self.scanning_index is not None:
-                    self.select_letter(self.scanning_index)
+            if 0.1 <= duration < 3 and self.scanning_index is not None:
+                self.select_letter(self.scanning_index)
         elif self.active_menu == "main":
             self.return_held = False
             self.menu_buttons[self.menu_scan_index].invoke()
@@ -320,23 +329,53 @@ class WordJumbleGame(tk.Tk):
     # ---------------- Main Menu ----------------
     def build_main_menu(self):
         self.main_menu_frame = tk.Frame(self, bg="darkorange")
-        title_label = tk.Label(self.main_menu_frame, text="Ben's Jumble Game", font=("Arial", 48), bg="darkorange", fg="black")
+        title_label = tk.Label(
+            self.main_menu_frame,
+            text="Ben's Jumble Game",
+            font=("Arial", 48),
+            bg="darkorange",
+            fg="black",
+        )
         title_label.pack(pady=50)
         self.menu_buttons = []
-        btn_easy = tk.Button(self.main_menu_frame, text="Easy", font=("Arial", 36), bg="darkorange", fg="black",
-                             command=lambda: self.start_game("easy"))
+        btn_easy = tk.Button(
+            self.main_menu_frame,
+            text="Easy",
+            font=("Arial", 36),
+            bg="darkorange",
+            fg="black",
+            command=lambda: self.start_game("easy"),
+        )
         btn_easy.pack(pady=20)
         self.menu_buttons.append(btn_easy)
-        btn_medium = tk.Button(self.main_menu_frame, text="Medium", font=("Arial", 36), bg="darkorange", fg="black",
-                               command=lambda: self.start_game("medium"))
+        btn_medium = tk.Button(
+            self.main_menu_frame,
+            text="Medium",
+            font=("Arial", 36),
+            bg="darkorange",
+            fg="black",
+            command=lambda: self.start_game("medium"),
+        )
         btn_medium.pack(pady=20)
         self.menu_buttons.append(btn_medium)
-        btn_hard = tk.Button(self.main_menu_frame, text="Hard", font=("Arial", 36), bg="darkorange", fg="black",
-                             command=lambda: self.start_game("hard"))
+        btn_hard = tk.Button(
+            self.main_menu_frame,
+            text="Hard",
+            font=("Arial", 36),
+            bg="darkorange",
+            fg="black",
+            command=lambda: self.start_game("hard"),
+        )
         btn_hard.pack(pady=20)
         self.menu_buttons.append(btn_hard)
-        btn_exit = tk.Button(self.main_menu_frame, text="Exit", font=("Arial", 36), bg="darkorange", fg="black",
-                             command=self.exit_game)
+        btn_exit = tk.Button(
+            self.main_menu_frame,
+            text="Exit",
+            font=("Arial", 36),
+            bg="darkorange",
+            fg="black",
+            command=self.exit_game,
+        )
         btn_exit.pack(pady=20)
         self.menu_buttons.append(btn_exit)
         self.menu_scan_index = None
@@ -355,14 +394,26 @@ class WordJumbleGame(tk.Tk):
 
     # ---------------- Game Screen ----------------
     def build_game_screen(self):
-        self.game_frame = tk.Frame(self, bg="black", highlightbackground="darkorange", highlightthickness=50)
-        self.sentence_label = tk.Label(self.game_frame, text="", font=("Arial", 36), fg="white", bg="black")
+        self.game_frame = tk.Frame(
+            self, bg="black", highlightbackground="darkorange", highlightthickness=50
+        )
+        self.sentence_label = tk.Label(
+            self.game_frame, text="", font=("Arial", 36), fg="white", bg="black"
+        )
         self.sentence_label.pack(pady=30)
         # Make the answer label about 300% larger and bold.
-        self.answer_label = tk.Label(self.game_frame, text="", font=("Arial", 128, "bold"), fg="white", bg="black")
+        self.answer_label = tk.Label(
+            self.game_frame,
+            text="",
+            font=("Arial", 128, "bold"),
+            fg="white",
+            bg="black",
+        )
         self.answer_label.pack(pady=30)
         # Level indicator at top right.
-        self.level_label = tk.Label(self.game_frame, text="", font=("Arial", 24), fg="white", bg="black")
+        self.level_label = tk.Label(
+            self.game_frame, text="", font=("Arial", 24), fg="white", bg="black"
+        )
         self.level_label.place(relx=1.0, rely=0.0, anchor="ne", x=-10, y=10)
         self.buttons_frame = tk.Frame(self.game_frame, bg="black")
         self.buttons_frame.pack(side="bottom", fill="x", padx=20, pady=20)
@@ -401,13 +452,15 @@ class WordJumbleGame(tk.Tk):
         self.full_sentence = row["sentence"].strip()
         # For display, replace the target word with underscores.
         if self.selected_word in self.full_sentence:
-            display_sentence = self.full_sentence.replace(self.selected_word, "_" * len(self.selected_word))
+            display_sentence = self.full_sentence.replace(
+                self.selected_word, "_" * len(self.selected_word)
+            )
         else:
             display_sentence = self.full_sentence
         self.sentence_label.config(text=display_sentence)
         # TTS: speak the word then the sentence.
         self.tts_speak("The word is: " + self.selected_word)
-        tts_sentence = re.sub(r'_+', self.selected_word, self.full_sentence)
+        tts_sentence = re.sub(r"_+", self.selected_word, self.full_sentence)
         self.tts_speak(tts_sentence)
         # Create jumbled letter buttons.
         self.jumbled_letters = list(self.selected_word)
@@ -417,7 +470,13 @@ class WordJumbleGame(tk.Tk):
             widget.destroy()
         self.letter_buttons = []
         for letter in self.jumbled_letters:
-            btn = tk.Button(self.buttons_frame, text=letter, font=("Arial", 36), bg="darkorange", fg="black")
+            btn = tk.Button(
+                self.buttons_frame,
+                text=letter,
+                font=("Arial", 36),
+                bg="darkorange",
+                fg="black",
+            )
             btn.pack(side="left", expand=True, fill="both", padx=5, pady=5)
             self.letter_buttons.append(btn)
         self.scanning_index = None
@@ -473,13 +532,23 @@ class WordJumbleGame(tk.Tk):
             widget.destroy()
         self.letter_buttons = []
         for letter in self.jumbled_letters:
-            btn = tk.Button(self.buttons_frame, text=letter, font=("Arial", 36), bg="darkorange", fg="black")
+            btn = tk.Button(
+                self.buttons_frame,
+                text=letter,
+                font=("Arial", 36),
+                bg="darkorange",
+                fg="black",
+            )
             btn.pack(side="left", expand=True, fill="both", padx=5, pady=5)
             self.letter_buttons.append(btn)
         self.scanning_index = None
 
     def show_final_score(self):
-        percentage = (self.total_correct / self.total_attempts * 100) if self.total_attempts > 0 else 0
+        percentage = (
+            (self.total_correct / self.total_attempts * 100)
+            if self.total_attempts > 0
+            else 0
+        )
         if percentage < 50:
             color = "red"
             msg = "Try again"
@@ -501,10 +570,23 @@ class WordJumbleGame(tk.Tk):
         else:
             color = "magenta"
             msg = "Wow that's perfect! ★★★"
-        score_label = tk.Label(self.game_frame, text=f"Score: {percentage:.0f}%", font=("Arial", 48), fg=color, bg="black")
+        score_label = tk.Label(
+            self.game_frame,
+            text=f"Score: {percentage:.0f}%",
+            font=("Arial", 48),
+            fg=color,
+            bg="black",
+        )
         score_label.place(relx=0.5, rely=0.5, anchor="center")
         self.tts_speak(msg)
-        self.after(5000, lambda: (score_label.destroy(), self.reset_all_levels(), self.show_main_menu()))
+        self.after(
+            5000,
+            lambda: (
+                score_label.destroy(),
+                self.reset_all_levels(),
+                self.show_main_menu(),
+            ),
+        )
 
     def reset_all_levels(self):
         self.level_number = None
@@ -515,19 +597,53 @@ class WordJumbleGame(tk.Tk):
     # ---------------- Pause Menu ----------------
     def build_pause_menu(self):
         self.pause_menu_frame = tk.Frame(self, bg="black")
-        pause_label = tk.Label(self.pause_menu_frame, text="Paused", font=("Arial", 48), fg="white", bg="black")
+        pause_label = tk.Label(
+            self.pause_menu_frame,
+            text="Paused",
+            font=("Arial", 48),
+            fg="white",
+            bg="black",
+        )
         pause_label.pack(pady=50)
         self.pause_buttons = []
-        btn_continue = tk.Button(self.pause_menu_frame, text="Continue", font=("Arial", 36), fg="black", bg="darkorange", command=self.resume_game)
+        btn_continue = tk.Button(
+            self.pause_menu_frame,
+            text="Continue",
+            font=("Arial", 36),
+            fg="black",
+            bg="darkorange",
+            command=self.resume_game,
+        )
         btn_continue.pack(pady=20)
         self.pause_buttons.append(btn_continue)
-        btn_remove = tk.Button(self.pause_menu_frame, text="Remove Letter", font=("Arial", 36), fg="black", bg="darkorange", command=self.remove_last_letter_option)
+        btn_remove = tk.Button(
+            self.pause_menu_frame,
+            text="Remove Letter",
+            font=("Arial", 36),
+            fg="black",
+            bg="darkorange",
+            command=self.remove_last_letter_option,
+        )
         btn_remove.pack(pady=20)
         self.pause_buttons.append(btn_remove)
-        btn_menu = tk.Button(self.pause_menu_frame, text="Main Menu", font=("Arial", 36), fg="black", bg="darkorange", command=self.return_to_main_menu)
+        btn_menu = tk.Button(
+            self.pause_menu_frame,
+            text="Main Menu",
+            font=("Arial", 36),
+            fg="black",
+            bg="darkorange",
+            command=self.return_to_main_menu,
+        )
         btn_menu.pack(pady=20)
         self.pause_buttons.append(btn_menu)
-        btn_exit = tk.Button(self.pause_menu_frame, text="Exit", font=("Arial", 36), fg="black", bg="darkorange", command=self.exit_game)
+        btn_exit = tk.Button(
+            self.pause_menu_frame,
+            text="Exit",
+            font=("Arial", 36),
+            fg="black",
+            bg="darkorange",
+            command=self.exit_game,
+        )
         btn_exit.pack(pady=20)
         self.pause_buttons.append(btn_exit)
         self.pause_scan_index = None
@@ -567,7 +683,13 @@ class WordJumbleGame(tk.Tk):
             removed = self.current_selection[-1]
             self.current_selection = self.current_selection[:-1]
             self.answer_label.config(text=self.current_selection)
-            btn = tk.Button(self.buttons_frame, text=removed, font=("Arial", 36), bg="darkorange", fg="black")
+            btn = tk.Button(
+                self.buttons_frame,
+                text=removed,
+                font=("Arial", 36),
+                bg="darkorange",
+                fg="black",
+            )
             btn.pack(side="left", expand=True, fill="both", padx=5, pady=5)
             self.letter_buttons.append(btn)
             self.scanning_index = None

@@ -1,14 +1,16 @@
-import tkinter as tk
-from functools import partial
-import random
-import time
-import subprocess
-import pyttsx3
-import threading
 import ctypes
-import win32gui
-import sys
+from functools import partial
 import os
+import random
+import subprocess
+import sys
+import threading
+import time
+import tkinter as tk
+
+import pyttsx3
+import win32gui
+
 
 class MemoryGame(tk.Tk):
     def __init__(self):
@@ -18,9 +20,13 @@ class MemoryGame(tk.Tk):
         self.configure(bg="red")  # Overall background is red
 
         # Focus and Start Menu monitoring threads
-        self.monitor_focus_thread = threading.Thread(target=self.monitor_focus, daemon=True)
+        self.monitor_focus_thread = threading.Thread(
+            target=self.monitor_focus, daemon=True
+        )
         self.monitor_focus_thread.start()
-        self.monitor_start_menu_thread = threading.Thread(target=self.monitor_start_menu, daemon=True)
+        self.monitor_start_menu_thread = threading.Thread(
+            target=self.monitor_start_menu, daemon=True
+        )
         self.monitor_start_menu_thread.start()
 
         # Initialize TTS engine
@@ -30,23 +36,43 @@ class MemoryGame(tk.Tk):
         # Player mode state
         self.two_player_mode = False
         self.current_player = 1
-        self.match_colors = {1: "green", 2: "#FF00FF"}  # Player 1: green, Player 2: pink
+        self.match_colors = {
+            1: "green",
+            2: "#FF00FF",
+        }  # Player 1: green, Player 2: pink
 
         # Mapping from card symbol to a spoken name
         self.symbol_names = {
-            "●": "circle", "■": "square", "▲": "triangle", "◆": "diamond",
-            "★": "star", "☀": "sun", "☂": "umbrella", "♣": "club",
-            "♠": "spade", "♥": "heart", "♦": "diamond", "☯": "yin yang",
-            "☮": "peace", "✿": "flower", "☘": "clover", "⚽": "soccer ball",
-            "☕": "coffee", "✈": "airplane"
+            "●": "circle",
+            "■": "square",
+            "▲": "triangle",
+            "◆": "diamond",
+            "★": "star",
+            "☀": "sun",
+            "☂": "umbrella",
+            "♣": "club",
+            "♠": "spade",
+            "♥": "heart",
+            "♦": "diamond",
+            "☯": "yin yang",
+            "☮": "peace",
+            "✿": "flower",
+            "☘": "clover",
+            "⚽": "soccer ball",
+            "☕": "coffee",
+            "✈": "airplane",
         }
 
         # Top frame for window controls
         top_frame = tk.Frame(self, bg="lightgray")
         top_frame.pack(side="top", fill="x")
-        minimize_btn = tk.Button(top_frame, text="_", command=self.iconify, font=("Arial", 12))
+        minimize_btn = tk.Button(
+            top_frame, text="_", command=self.iconify, font=("Arial", 12)
+        )
         minimize_btn.pack(side="right", padx=5, pady=5)
-        close_btn = tk.Button(top_frame, text="X", command=self.on_exit, font=("Arial", 12))
+        close_btn = tk.Button(
+            top_frame, text="X", command=self.on_exit, font=("Arial", 12)
+        )
         close_btn.pack(side="right", padx=5, pady=5)
 
         # Container frame for switching screens
@@ -139,8 +165,14 @@ class MemoryGame(tk.Tk):
             self.tts_engine.runAndWait()
 
     def create_tts_button(self, parent, text, command, font_size=36, pady=10):
-        btn = tk.Button(parent, text=text, command=command,
-                        font=("Arial", font_size), bg="gray", activebackground="gray")
+        btn = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            font=("Arial", font_size),
+            bg="gray",
+            activebackground="gray",
+        )
         btn.pack(pady=pady)
         btn.bind("<Enter>", lambda e: self.say_text(text))
         return btn
@@ -152,12 +184,22 @@ class MemoryGame(tk.Tk):
             self.current_frame.destroy()
         self.current_frame = tk.Frame(self.container, bg="red")
         self.current_frame.pack(expand=True, fill="both")
-        title = tk.Label(self.current_frame, text="CONCENTRATION", font=("Arial Black", 60), bg="red", fg="white")
+        title = tk.Label(
+            self.current_frame,
+            text="CONCENTRATION",
+            font=("Arial Black", 60),
+            bg="red",
+            fg="white",
+        )
         title.pack(pady=20)
         self.menu_buttons = []
-        btn = self.create_tts_button(self.current_frame, "Single Player", lambda: self.select_player_mode(False))
+        btn = self.create_tts_button(
+            self.current_frame, "Single Player", lambda: self.select_player_mode(False)
+        )
         self.menu_buttons.append(btn)
-        btn = self.create_tts_button(self.current_frame, "Two Player", lambda: self.select_player_mode(True))
+        btn = self.create_tts_button(
+            self.current_frame, "Two Player", lambda: self.select_player_mode(True)
+        )
         self.menu_buttons.append(btn)
         btn = self.create_tts_button(self.current_frame, "Exit", self.on_exit)
         self.menu_buttons.append(btn)
@@ -174,16 +216,30 @@ class MemoryGame(tk.Tk):
             self.current_frame.destroy()
         self.current_frame = tk.Frame(self.container, bg="red")
         self.current_frame.pack(expand=True, fill="both")
-        title = tk.Label(self.current_frame, text="SELECT DIFFICULTY", font=("Arial Black", 60), bg="red", fg="white")
+        title = tk.Label(
+            self.current_frame,
+            text="SELECT DIFFICULTY",
+            font=("Arial Black", 60),
+            bg="red",
+            fg="white",
+        )
         title.pack(pady=20)
         self.menu_buttons = []
-        btn = self.create_tts_button(self.current_frame, "Easy", lambda: self.start_game("easy"))
+        btn = self.create_tts_button(
+            self.current_frame, "Easy", lambda: self.start_game("easy")
+        )
         self.menu_buttons.append(btn)
-        btn = self.create_tts_button(self.current_frame, "Medium", lambda: self.start_game("medium"))
+        btn = self.create_tts_button(
+            self.current_frame, "Medium", lambda: self.start_game("medium")
+        )
         self.menu_buttons.append(btn)
-        btn = self.create_tts_button(self.current_frame, "Hard", lambda: self.start_game("hard"))
+        btn = self.create_tts_button(
+            self.current_frame, "Hard", lambda: self.start_game("hard")
+        )
         self.menu_buttons.append(btn)
-        btn = self.create_tts_button(self.current_frame, "Back", self.show_player_mode_menu)
+        btn = self.create_tts_button(
+            self.current_frame, "Back", self.show_player_mode_menu
+        )
         self.menu_buttons.append(btn)
         self.menu_scan_index = 0
         self.update_menu_scan_highlight()
@@ -212,11 +268,21 @@ class MemoryGame(tk.Tk):
         self.pause_just_opened = True
         self.pause_frame = tk.Frame(self.current_frame, bg="black")
         self.pause_frame.place(relx=0.5, rely=0.5, anchor="center")
-        tk.Label(self.pause_frame, text="Pause Menu", font=("Arial", 40), fg="white", bg="black").pack(pady=20)
+        tk.Label(
+            self.pause_frame,
+            text="Pause Menu",
+            font=("Arial", 40),
+            fg="white",
+            bg="black",
+        ).pack(pady=20)
         self.pause_buttons = []
-        btn = self.create_tts_button(self.pause_frame, "Continue Game", self.continue_game)
+        btn = self.create_tts_button(
+            self.pause_frame, "Continue Game", self.continue_game
+        )
         self.pause_buttons.append(btn)
-        btn = self.create_tts_button(self.pause_frame, "Return to Menu", self.return_to_menu)
+        btn = self.create_tts_button(
+            self.pause_frame, "Return to Menu", self.return_to_menu
+        )
         self.pause_buttons.append(btn)
         btn = self.create_tts_button(self.pause_frame, "Exit", self.on_exit)
         self.pause_buttons.append(btn)
@@ -275,11 +341,24 @@ class MemoryGame(tk.Tk):
             inactive_index = None
         num_pairs = active_cells // 2
         card_designs = [
-            ("●", "blue"), ("■", "red"), ("▲", "lime"), ("◆", "purple"),
-            ("★", "gold"), ("☀", "yellow"), ("☂", "cyan"), ("♣", "lime"),
-            ("♠", "black"), ("♥", "red"), ("♦", "orange"), ("☯", "black"),
-            ("☮", "purple"), ("✿", "violet"), ("☘", "lime"), ("⚽", "black"),
-            ("☕", "brown"), ("✈", "navy")
+            ("●", "blue"),
+            ("■", "red"),
+            ("▲", "lime"),
+            ("◆", "purple"),
+            ("★", "gold"),
+            ("☀", "yellow"),
+            ("☂", "cyan"),
+            ("♣", "lime"),
+            ("♠", "black"),
+            ("♥", "red"),
+            ("♦", "orange"),
+            ("☯", "black"),
+            ("☮", "purple"),
+            ("✿", "violet"),
+            ("☘", "lime"),
+            ("⚽", "black"),
+            ("☕", "brown"),
+            ("✈", "navy"),
         ]
         random.shuffle(card_designs)
         selected_designs = card_designs[:num_pairs]
@@ -297,23 +376,48 @@ class MemoryGame(tk.Tk):
         card_index = 0
         for r in range(self.rows):
             for c in range(self.cols):
-                cell_frame = tk.Frame(grid_frame, width=cell_width, height=cell_height, bg="red")
+                cell_frame = tk.Frame(
+                    grid_frame, width=cell_width, height=cell_height, bg="red"
+                )
                 cell_frame.grid(row=r, column=c)
                 cell_frame.grid_propagate(False)
                 cell_idx = r * self.cols + c
                 if self.inactive_cell and cell_idx == inactive_index:
                     lbl = tk.Label(cell_frame, text="", bg="gray", relief="sunken")
-                    lbl.place(relx=0.5, rely=0.5, anchor="center", width=cell_width, height=cell_height)
+                    lbl.place(
+                        relx=0.5,
+                        rely=0.5,
+                        anchor="center",
+                        width=cell_width,
+                        height=cell_height,
+                    )
                 else:
                     symbol, color = cards[card_index]
                     card_index += 1
-                    btn = tk.Button(cell_frame, text="", font=("Arial", 48),
-                                    bg="dark gray", fg="black", activebackground="dark gray",
-                                    bd=2, relief="solid",
-                                    command=partial(self.reveal_card, r, c))
-                    btn.place(relx=0.5, rely=0.5, anchor="center", width=cell_width, height=cell_height)
-                    self.buttons[(r, c)] = {"button": btn, "value": (symbol, color),
-                                              "revealed": False, "matched": False}
+                    btn = tk.Button(
+                        cell_frame,
+                        text="",
+                        font=("Arial", 48),
+                        bg="dark gray",
+                        fg="black",
+                        activebackground="dark gray",
+                        bd=2,
+                        relief="solid",
+                        command=partial(self.reveal_card, r, c),
+                    )
+                    btn.place(
+                        relx=0.5,
+                        rely=0.5,
+                        anchor="center",
+                        width=cell_width,
+                        height=cell_height,
+                    )
+                    self.buttons[(r, c)] = {
+                        "button": btn,
+                        "value": (symbol, color),
+                        "revealed": False,
+                        "matched": False,
+                    }
         self.current_row, self.current_col = 0, 0
         # Announce first turn
         if self.two_player_mode:
@@ -337,11 +441,10 @@ class MemoryGame(tk.Tk):
                     btn.config(bg="white", activebackground="white")
                 else:
                     btn.config(bg=default_color, activebackground=default_color)
+            elif r == self.current_row and c == self.current_col:
+                btn.config(bg="white", activebackground="white")
             else:
-                if r == self.current_row and c == self.current_col:
-                    btn.config(bg="white", activebackground="white")
-                else:
-                    btn.config(bg=default_color, activebackground=default_color)
+                btn.config(bg=default_color, activebackground=default_color)
 
     def move_scan_forward(self):
         if self.scan_mode == "row":
@@ -425,11 +528,10 @@ class MemoryGame(tk.Tk):
         if self.current_mode not in ("game", "main_menu", "pause"):
             return
         duration = time.time() - (self.return_press_time or 0)
-        if self.current_mode == "pause":
-            if self.pause_just_opened:
-                self.pause_just_opened = False
-                self.return_held = False
-                return
+        if self.current_mode == "pause" and self.pause_just_opened:
+            self.pause_just_opened = False
+            self.return_held = False
+            return
         if self.current_mode == "game":
             if self.return_pause_timer_id:
                 self.after_cancel(self.return_pause_timer_id)
@@ -475,19 +577,25 @@ class MemoryGame(tk.Tk):
             first_card = self.buttons.get((fr, fc))
             if first_card and first_card["value"] == card_info["value"]:
                 # Match!
-                match_color = self.match_colors[self.current_player] if self.two_player_mode else "green"
+                match_color = (
+                    self.match_colors[self.current_player]
+                    if self.two_player_mode
+                    else "green"
+                )
                 for card in (first_card, card_info):
                     card["matched"] = True
                     if self.two_player_mode:
                         card["matched_by"] = self.current_player
                 self.matched_pairs += 1
                 self.after(100, lambda: self.say_text("that's a match!"))
-                first_card["button"].config(bg=match_color, activebackground=match_color)
+                first_card["button"].config(
+                    bg=match_color, activebackground=match_color
+                )
                 card_info["button"].config(bg=match_color, activebackground=match_color)
                 self.first_selection = None
                 if self.two_player_mode:
                     # Player gets another turn after a match
-                    self.say_text(f"Player {self.current_player}\'s Turn")
+                    self.say_text(f"Player {self.current_player}'s Turn")
                 if self.matched_pairs == len(self.buttons) // 2:
                     elapsed = time.time() - self.start_time
                     self.show_win_message(elapsed)
@@ -506,14 +614,20 @@ class MemoryGame(tk.Tk):
         if self.two_player_mode:
             # Switch turn
             self.current_player = 2 if self.current_player == 1 else 1
-            self.say_text(f"Player {self.current_player}\'s Turn")
+            self.say_text(f"Player {self.current_player}'s Turn")
 
     def show_win_message(self, elapsed):
         for widget in self.current_frame.winfo_children():
             widget.destroy()
         win_msg = f"Congratulations! You won in {elapsed:.2f} seconds!"
         self.say_text(win_msg)
-        tk.Label(self.current_frame, text=win_msg, font=("Arial Black", 42), fg="purple", bg="yellow").place(relx=0.5, rely=0.5, anchor="center")
+        tk.Label(
+            self.current_frame,
+            text=win_msg,
+            font=("Arial Black", 42),
+            fg="purple",
+            bg="yellow",
+        ).place(relx=0.5, rely=0.5, anchor="center")
         self.after(5000, self.show_player_mode_menu)
 
     def on_exit(self):
@@ -524,6 +638,7 @@ class MemoryGame(tk.Tk):
             subprocess.Popen([sys.executable, script_path])
         except Exception as e:
             print("Failed to launch Comm-v9.py:", e)
+
 
 if __name__ == "__main__":
     app = MemoryGame()

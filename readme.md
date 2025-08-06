@@ -134,11 +134,20 @@ uv sync --extra dev
 # Run tests
 uv run pytest
 
-# Format code
+# Format code with Black
 uv run black .
 
-# Type checking
+# Lint code with Ruff
+uv run ruff check
+
+# Auto-fix linting issues
+uv run ruff check --fix
+
+# Type checking with MyPy
 uv run mypy .
+
+# Run all quality checks
+uv run black . && uv run ruff check --fix && uv run mypy .
 ```
 
 ## Usage
@@ -286,11 +295,36 @@ uv sync --extra dev
 # Run tests
 uv run pytest
 
-# Format code
+# Format code with Black
 uv run black .
 
-# Type checking
+# Lint and fix code with Ruff
+uv run ruff check --fix
+
+# Type checking with MyPy
 uv run mypy .
+```
+
+### Code Quality Standards
+
+This project uses modern Python tooling for code quality:
+
+- **[Black](https://black.readthedocs.io/)** - Uncompromising code formatter
+- **[Ruff](https://docs.astral.sh/ruff/)** - Fast Python linter and code formatter
+- **[MyPy](https://mypy.readthedocs.io/)** - Static type checker
+
+**Code Style:**
+- Line length: 88 characters (Black default)
+- Python 3.8+ compatibility
+- Type hints encouraged for new code
+- Docstrings for public functions and classes
+
+**Pre-commit Workflow:**
+```bash
+# Before committing, run:
+uv run black .                    # Format code
+uv run ruff check --fix          # Lint and auto-fix
+uv run pytest                    # Run tests
 ```
 
 ## License

@@ -1,13 +1,13 @@
 # © 2025 NARBE House – Licensed under CC BY-NC 4.0
 
+from datetime import datetime
 import json
 import os
-import time
 import threading
-import urllib.request
-import urllib.parse
+import time
 import urllib.error
-from datetime import datetime
+import urllib.parse
+import urllib.request
 
 # Define paths for predictive text data
 PREDICTIVE_FILE = os.path.join(os.path.dirname(__file__), "predictive_ngrams.json")
@@ -44,7 +44,7 @@ def load_config():
     global config
     try:
         if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+            with open(CONFIG_FILE, encoding="utf-8") as file:
                 loaded_config = json.load(file)
                 # Merge with defaults to handle new config options
                 config = DEFAULT_CONFIG.copy()
@@ -54,7 +54,7 @@ def load_config():
             # Create default config file
             save_config()
             print("📝 Default configuration created")
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"⚠️ Config load error: {e}. Using defaults.")
         config = DEFAULT_CONFIG.copy()
 
@@ -64,7 +64,7 @@ def save_config():
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as file:
             json.dump(config, file, indent=4)
-    except IOError as e:
+    except OSError as e:
         print(f"⚠️ Config save error: {e}")
 
 
@@ -92,7 +92,7 @@ def load_json():
         return
 
     try:
-        with open(PREDICTIVE_FILE, "r", encoding="utf-8") as file:
+        with open(PREDICTIVE_FILE, encoding="utf-8") as file:
             predictive_data = json.load(file)
 
         # Convert all words to uppercase for consistency
@@ -323,13 +323,12 @@ def get_predictive_suggestions(text, num_suggestions=6):
     if has_trailing_space:
         left_context = cleaned
         prefix = ""
+    elif words:
+        prefix = words[-1]
+        left_context = " ".join(words[:-1])
     else:
-        if words:
-            prefix = words[-1]
-            left_context = " ".join(words[:-1])
-        else:
-            prefix = ""
-            left_context = ""
+        prefix = ""
+        left_context = ""
 
     # Get online predictions with error handling
     try:

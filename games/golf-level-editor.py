@@ -1,12 +1,13 @@
-import pygame
-import sys
 import math
+import sys
+
+import pygame
 
 pygame.init()
 
 # ---------------- Constants ----------------
 GAME_WIDTH, GAME_HEIGHT = 1200, 800  # Fixed dimensions for the golf game area
-PALETTE_WIDTH = 220                 # Extra width for the palette on the left
+PALETTE_WIDTH = 220  # Extra width for the palette on the left
 SCREEN_WIDTH = GAME_WIDTH + PALETTE_WIDTH
 SCREEN_HEIGHT = GAME_HEIGHT
 
@@ -15,14 +16,14 @@ BASE_BALL_RADIUS = 45
 BASE_HOLE_RADIUS = 45
 
 # Colors
-WHITE      = (255, 255, 255)
-BLACK      = (0, 0, 0)
-GREY       = (200, 200, 200)
-DARK_GREY  = (50, 50, 50)
-GREEN      = (0, 128, 0)
-BLUE       = (0, 0, 255)
-RED        = (255, 0, 0)
-SAND       = (194, 178, 128)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREY = (200, 200, 200)
+DARK_GREY = (50, 50, 50)
+GREEN = (0, 128, 0)
+BLUE = (0, 0, 255)
+RED = (255, 0, 0)
+SAND = (194, 178, 128)
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Golf Level Editor")
@@ -31,15 +32,15 @@ clock = pygame.time.Clock()
 # ---------------- Hazard Definitions ----------------
 # Hazard pieces for water, wall, and sand.
 hazard_defs = {
-    "water_small":  {"type": "water", "size": (50, 30),   "color": BLUE},
-    "water_medium": {"type": "water", "size": (100, 60),  "color": BLUE},
-    "water_large":  {"type": "water", "size": (150, 90),  "color": BLUE},
-    "wall_small":   {"type": "wall",  "size": (50, 100),  "color": DARK_GREY},
-    "wall_medium":  {"type": "wall",  "size": (80, 160),  "color": DARK_GREY},
-    "wall_large":   {"type": "wall",  "size": (120, 240), "color": DARK_GREY},
-    "sand_small":   {"type": "sand",  "size": (50, 30),   "color": SAND},
-    "sand_medium":  {"type": "sand",  "size": (100, 60),  "color": SAND},
-    "sand_large":   {"type": "sand",  "size": (150, 90),  "color": SAND},
+    "water_small": {"type": "water", "size": (50, 30), "color": BLUE},
+    "water_medium": {"type": "water", "size": (100, 60), "color": BLUE},
+    "water_large": {"type": "water", "size": (150, 90), "color": BLUE},
+    "wall_small": {"type": "wall", "size": (50, 100), "color": DARK_GREY},
+    "wall_medium": {"type": "wall", "size": (80, 160), "color": DARK_GREY},
+    "wall_large": {"type": "wall", "size": (120, 240), "color": DARK_GREY},
+    "sand_small": {"type": "sand", "size": (50, 30), "color": SAND},
+    "sand_medium": {"type": "sand", "size": (100, 60), "color": SAND},
+    "sand_large": {"type": "sand", "size": (150, 90), "color": SAND},
 }
 # ---------------- Palette Setup ----------------
 palette_items = []
@@ -52,31 +53,36 @@ for key, defs in hazard_defs.items():
     text = font.render(key, True, BLACK)
     text_rect = text.get_rect(topleft=(padding, y_offset))
     preview_rect = pygame.Rect(PALETTE_WIDTH - 70, y_offset, 50, 50)
-    palette_items.append({
-        "name": key,
-        "def": defs,
-        "text": text,
-        "text_rect": text_rect,
-        "preview_rect": preview_rect
-    })
+    palette_items.append(
+        {
+            "name": key,
+            "def": defs,
+            "text": text,
+            "text_rect": text_rect,
+            "preview_rect": preview_rect,
+        }
+    )
     y_offset += max(text_rect.height, preview_rect.height) + padding
 
 # Next, add items for "ball" and "hole"
-for key, label, size, color in [
+for key, _label, size, color in [
     ("ball", "ball", (40, 40), WHITE),
     ("hole", "hole", (40, 40), BLACK),
 ]:
     text = font.render(key, True, BLACK)
     text_rect = text.get_rect(topleft=(padding, y_offset))
     preview_rect = pygame.Rect(PALETTE_WIDTH - 70, y_offset, 50, 50)
-    palette_items.append({
-        "name": key,
-        "def": {"type": key, "size": size, "color": color},
-        "text": text,
-        "text_rect": text_rect,
-        "preview_rect": preview_rect
-    })
+    palette_items.append(
+        {
+            "name": key,
+            "def": {"type": key, "size": size, "color": color},
+            "text": text,
+            "text_rect": text_rect,
+            "preview_rect": preview_rect,
+        }
+    )
     y_offset += max(text_rect.height, preview_rect.height) + padding
+
 
 # ---------------- Game Layout Functions ----------------
 def get_playable_area():
@@ -90,16 +96,26 @@ def get_playable_area():
     play_height = GAME_HEIGHT - 2 * BORDER_THICKNESS
     return play_x0, play_y0, play_width, play_height
 
+
 # Global ball and hole positions.
 def get_default_positions():
     play_x0, play_y0, play_width, play_height = get_playable_area()
     ball_vert_pct = 0.2
     hole_vert_pct = 0.8
     ball_x = PALETTE_WIDTH + BORDER_THICKNESS + BASE_BALL_RADIUS + 10
-    ball_y = play_y0 + BASE_BALL_RADIUS + int(ball_vert_pct * (play_height - 2 * BASE_BALL_RADIUS))
+    ball_y = (
+        play_y0
+        + BASE_BALL_RADIUS
+        + int(ball_vert_pct * (play_height - 2 * BASE_BALL_RADIUS))
+    )
     hole_x = PALETTE_WIDTH + BORDER_THICKNESS + play_width - BASE_HOLE_RADIUS - 10
-    hole_y = play_y0 + BASE_HOLE_RADIUS + int(hole_vert_pct * (play_height - 2 * BASE_HOLE_RADIUS))
+    hole_y = (
+        play_y0
+        + BASE_HOLE_RADIUS
+        + int(hole_vert_pct * (play_height - 2 * BASE_HOLE_RADIUS))
+    )
     return [ball_x, ball_y], [hole_x, hole_y]
+
 
 ball_pos, hole_pos = get_default_positions()
 
@@ -109,7 +125,8 @@ placed_hazards = []
 
 # ---------------- Drag/Selection Variables ----------------
 selected_object = None  # Can be a hazard (dict) or the string "ball" or "hole"
-offset_x, offset_y = 0, 0   # For dragging
+offset_x, offset_y = 0, 0  # For dragging
+
 
 # ---------------- Drawing Functions ----------------
 def draw_palette():
@@ -118,18 +135,41 @@ def draw_palette():
         pygame.draw.rect(screen, BLACK, item["preview_rect"], 2)
         screen.blit(item["text"], item["text_rect"])
 
+
 def draw_game_area():
     # Draw game area background
     game_area_rect = pygame.Rect(PALETTE_WIDTH, 0, GAME_WIDTH, GAME_HEIGHT)
     pygame.draw.rect(screen, GREEN, game_area_rect)
     # Draw outer walls
-    pygame.draw.rect(screen, GREY, (PALETTE_WIDTH, 0, GAME_WIDTH, BORDER_THICKNESS))  # Top wall
-    pygame.draw.rect(screen, GREY, (PALETTE_WIDTH, GAME_HEIGHT - BORDER_THICKNESS, GAME_WIDTH, BORDER_THICKNESS))  # Bottom wall
-    pygame.draw.rect(screen, GREY, (PALETTE_WIDTH, 0, BORDER_THICKNESS, GAME_HEIGHT))  # Left wall
-    pygame.draw.rect(screen, GREY, (PALETTE_WIDTH + GAME_WIDTH - BORDER_THICKNESS, 0, BORDER_THICKNESS, GAME_HEIGHT))  # Right wall
+    pygame.draw.rect(
+        screen, GREY, (PALETTE_WIDTH, 0, GAME_WIDTH, BORDER_THICKNESS)
+    )  # Top wall
+    pygame.draw.rect(
+        screen,
+        GREY,
+        (PALETTE_WIDTH, GAME_HEIGHT - BORDER_THICKNESS, GAME_WIDTH, BORDER_THICKNESS),
+    )  # Bottom wall
+    pygame.draw.rect(
+        screen, GREY, (PALETTE_WIDTH, 0, BORDER_THICKNESS, GAME_HEIGHT)
+    )  # Left wall
+    pygame.draw.rect(
+        screen,
+        GREY,
+        (
+            PALETTE_WIDTH + GAME_WIDTH - BORDER_THICKNESS,
+            0,
+            BORDER_THICKNESS,
+            GAME_HEIGHT,
+        ),
+    )  # Right wall
     # Draw ball and hole at their current positions
-    pygame.draw.circle(screen, WHITE, (int(ball_pos[0]), int(ball_pos[1])), BASE_BALL_RADIUS)
-    pygame.draw.circle(screen, BLACK, (int(hole_pos[0]), int(hole_pos[1])), BASE_HOLE_RADIUS)
+    pygame.draw.circle(
+        screen, WHITE, (int(ball_pos[0]), int(ball_pos[1])), BASE_BALL_RADIUS
+    )
+    pygame.draw.circle(
+        screen, BLACK, (int(hole_pos[0]), int(hole_pos[1])), BASE_HOLE_RADIUS
+    )
+
 
 def draw_hazards():
     for hazard in placed_hazards:
@@ -137,8 +177,11 @@ def draw_hazards():
         if hazard is selected_object:
             pygame.draw.rect(screen, RED, hazard["rect"], 3)
 
+
 def draw_divider():
-    pygame.draw.line(screen, BLACK, (PALETTE_WIDTH, 0), (PALETTE_WIDTH, SCREEN_HEIGHT), 2)
+    pygame.draw.line(
+        screen, BLACK, (PALETTE_WIDTH, 0), (PALETTE_WIDTH, SCREEN_HEIGHT), 2
+    )
 
 
 # ---------------- Output Function ----------------
@@ -168,13 +211,13 @@ def print_layout():
             waters.append(tup)
         elif hazard["type"] == "sand":
             sands.append(tup)
-            
+
     # Adjust ball and hole positions similarly:
     ball_x_export = int((ball_pos[0] - PALETTE_WIDTH) * scale_x)
     ball_y_export = int(ball_pos[1] * scale_y)
     hole_x_export = int((hole_pos[0] - PALETTE_WIDTH) * scale_x)
     hole_y_export = int(hole_pos[1] * scale_y)
-    
+
     # Print out the layout in a format that can be pasted directly into the game.
     print("\n# Copy and paste this layout code into your game for a level:")
     print("current_walls = [")
@@ -192,6 +235,7 @@ def print_layout():
     print(f"ball_x, ball_y = ({ball_x_export}, {ball_y_export})")
     print(f"hole_x, hole_y = ({hole_x_export}, {hole_y_export})")
 
+
 # ---------------- Main Editor Loop ----------------
 selected_hazard_def = None  # Currently selected palette item definition.
 
@@ -201,7 +245,7 @@ while running:
         if event.type == pygame.QUIT:
             running = False
             sys.exit()
-            
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mx, my = event.pos
             # Left click (button 1)
@@ -209,7 +253,9 @@ while running:
                 # If click is in the palette area:
                 if mx < PALETTE_WIDTH:
                     for item in palette_items:
-                        if item["text_rect"].collidepoint(mx, my) or item["preview_rect"].collidepoint(mx, my):
+                        if item["text_rect"].collidepoint(mx, my) or item[
+                            "preview_rect"
+                        ].collidepoint(mx, my):
                             selected_hazard_def = item["def"]
                             print(f"Selected {item['name']}")
                             break
@@ -250,23 +296,30 @@ while running:
                                 else:
                                     # Otherwise, create a new hazard.
                                     width, height = selected_hazard_def["size"]
-                                    new_rect = pygame.Rect(mx - width // 2, my - height // 2, width, height)
-                                    placed_hazards.append({
-                                        "name": [k for k, v in hazard_defs.items() if v == selected_hazard_def][0],
-                                        "rect": new_rect,
-                                        "type": selected_hazard_def["type"],
-                                        "color": selected_hazard_def["color"],
-                                    })
+                                    new_rect = pygame.Rect(
+                                        mx - width // 2, my - height // 2, width, height
+                                    )
+                                    placed_hazards.append(
+                                        {
+                                            "name": next(
+                                                k
+                                                for k, v in hazard_defs.items()
+                                                if v == selected_hazard_def
+                                            ),
+                                            "rect": new_rect,
+                                            "type": selected_hazard_def["type"],
+                                            "color": selected_hazard_def["color"],
+                                        }
+                                    )
                             selected_object = None
 
             # Right click (button 3) deletes hazards (but not ball/hole)
-            elif event.button == 3:
-                if mx >= PALETTE_WIDTH:
-                    for hazard in placed_hazards:
-                        if hazard["rect"].collidepoint(mx, my):
-                            placed_hazards.remove(hazard)
-                            print(f"Removed {hazard['name']}")
-                            break
+            elif event.button == 3 and mx >= PALETTE_WIDTH:
+                for hazard in placed_hazards:
+                    if hazard["rect"].collidepoint(mx, my):
+                        placed_hazards.remove(hazard)
+                        print(f"Removed {hazard['name']}")
+                        break
 
         elif event.type == pygame.MOUSEBUTTONUP:
             selected_object = None

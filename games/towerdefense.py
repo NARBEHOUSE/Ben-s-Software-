@@ -1,15 +1,16 @@
-import pygame
-import random
-import time
-import threading
-import pyttsx3
-import queue
 from copy import deepcopy
+import ctypes
+import math
 import os
+import queue
+import random
 import subprocess
 import sys
-import math
-import ctypes
+import threading
+import time
+
+import pygame
+import pyttsx3
 import win32gui
 
 # Initialize the mixer (only once)
@@ -23,7 +24,9 @@ hit_tower_sound = pygame.mixer.Sound(os.path.join(sound_folder, "hittower.wav"))
 hit_tower_sound.set_volume(1.0)
 tower_shoot_sound = pygame.mixer.Sound(os.path.join(sound_folder, "towershoot.wav"))
 tower_shoot_sound.set_volume(1.0)
-enemy_destroyed_sound = pygame.mixer.Sound(os.path.join(sound_folder, "enemydestroyed.wav"))
+enemy_destroyed_sound = pygame.mixer.Sound(
+    os.path.join(sound_folder, "enemydestroyed.wav")
+)
 enemy_destroyed_sound.set_volume(1.0)
 
 # Load bomb and laser beam sound effects.
@@ -43,8 +46,10 @@ pygame.mixer.music.play(-1)
 
 # Initialize TTS (separate from pygame mixer)
 engine = pyttsx3.init()
-engine.setProperty('volume', 1.0)
+engine.setProperty("volume", 1.0)
 tts_queue = queue.Queue()
+
+
 def tts_worker():
     while True:
         text = tts_queue.get()
@@ -57,11 +62,14 @@ def tts_worker():
             print("TTS error:", e)
         tts_queue.task_done()
 
+
 tts_thread = threading.Thread(target=tts_worker, daemon=True)
 tts_thread.start()
 
+
 def speak(text):
     tts_queue.put(text)
+
 
 # ------------------------------ #
 #   Pygame Initialization        #
@@ -75,6 +83,7 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE
 pygame.display.set_caption("Ben's Tower Defense")
 clock = pygame.time.Clock()
 
+
 def handle_resize(event):
     global SCREEN_WIDTH, SCREEN_HEIGHT, screen, TOWER_X, TOWER_Y
     SCREEN_WIDTH, SCREEN_HEIGHT = event.w, event.h
@@ -82,17 +91,18 @@ def handle_resize(event):
     TOWER_X = SCREEN_WIDTH // 2 - TOWER_SIZE // 2
     TOWER_Y = SCREEN_HEIGHT - 180
 
+
 # ------------------------------ #
 #         Global Variables       #
 # ------------------------------ #
 # Initially, maximum tower health is the same as TOWER_MAX_HP.
-ROUND_DURATION = 150            # 2.5 minutes per level
+ROUND_DURATION = 150  # 2.5 minutes per level
 TOWER_MAX_HP = 100
 max_tower_hp = TOWER_MAX_HP
 
 # These globals will be reset for a fresh game:
 wave_number = 1
-points = 200                    # Starting points
+points = 200  # Starting points
 tower_hp = TOWER_MAX_HP
 enemies = []
 tower_projectiles = []
@@ -105,7 +115,7 @@ max_shield_hp = 0
 shield_active = False
 
 # Tower parameters – 150x150 (3× larger)
-TOWER_SIZE = 150  
+TOWER_SIZE = 150
 TOWER_X = SCREEN_WIDTH // 2 - TOWER_SIZE // 2
 TOWER_Y = SCREEN_HEIGHT - 180  # Damage zone starts at TOWER_Y
 
@@ -123,15 +133,16 @@ laser_hit_enemies = set()
 last_laser_time = time.time()  # Tracks when the laser last fired
 
 # --- Global Bomb Variables (add these near your other globals) ---
-bomb_duration = 2.0        # Shockwave lasts 2 seconds.
-bomb_damage = 6            # Damage dealt by the bomb.
+bomb_duration = 2.0  # Shockwave lasts 2 seconds.
+bomb_damage = 6  # Damage dealt by the bomb.
 bomb_last_time = time.time()  # Time when the bomb was last dropped.
-bomb_active = False        # Whether the bomb effect is active.
-bomb_hit_enemies = set()   # Enemies already damaged by the current bomb drop.
+bomb_active = False  # Whether the bomb effect is active.
+bomb_hit_enemies = set()  # Enemies already damaged by the current bomb drop.
 
 # --- Enemy Focus ---
 
 focused_enemy = None
+
 
 # ------------------------------ #
 #    Custom Window Controls      #
@@ -140,16 +151,33 @@ def draw_window_controls():
     button_width = 40
     button_height = 30
     gap = 5
-    close_rect = pygame.Rect(SCREEN_WIDTH - button_width - gap, gap, button_width, button_height)
-    min_rect = pygame.Rect(SCREEN_WIDTH - 2*button_width - 2*gap, gap, button_width, button_height)
+    close_rect = pygame.Rect(
+        SCREEN_WIDTH - button_width - gap, gap, button_width, button_height
+    )
+    min_rect = pygame.Rect(
+        SCREEN_WIDTH - 2 * button_width - 2 * gap, gap, button_width, button_height
+    )
     pygame.draw.rect(screen, (200, 0, 0), close_rect)
     pygame.draw.rect(screen, (0, 200, 0), min_rect)
     font = pygame.font.Font(None, 36)
-    close_text = font.render("X", True, (255,255,255))
-    min_text = font.render("_", True, (255,255,255))
-    screen.blit(close_text, (close_rect.x + (button_width - close_text.get_width())/2, close_rect.y + (button_height - close_text.get_height())/2))
-    screen.blit(min_text, (min_rect.x + (button_width - min_text.get_width())/2, min_rect.y + (button_height - min_text.get_height())/2))
+    close_text = font.render("X", True, (255, 255, 255))
+    min_text = font.render("_", True, (255, 255, 255))
+    screen.blit(
+        close_text,
+        (
+            close_rect.x + (button_width - close_text.get_width()) / 2,
+            close_rect.y + (button_height - close_text.get_height()) / 2,
+        ),
+    )
+    screen.blit(
+        min_text,
+        (
+            min_rect.x + (button_width - min_text.get_width()) / 2,
+            min_rect.y + (button_height - min_text.get_height()) / 2,
+        ),
+    )
     return close_rect, min_rect
+
 
 # ------------------------------ #
 #         Tower Class            #
@@ -159,6 +187,7 @@ class Tower:
         self.x = x
         self.y = y
         self.size = size
+
 
 # ------------------------------ #
 #      Bomb Effect Function      #
@@ -173,34 +202,41 @@ def drop_bomb_effect():
     current_radius = (elapsed / bomb_duration) * max_radius
     # Draw an expanding circle outline (shockwave) in dark orange.
     dark_orange = (255, 140, 0)
-    pygame.draw.circle(screen, dark_orange, (int(bomb_center[0]), int(bomb_center[1])), int(current_radius), 5)
-    
+    pygame.draw.circle(
+        screen,
+        dark_orange,
+        (int(bomb_center[0]), int(bomb_center[1])),
+        int(current_radius),
+        5,
+    )
+
     # Damage detection: for each enemy, if its distance from bomb_center is less than current_radius and
     # it has not already been hit by this bomb, then apply damage.
     for enemy in enemies[:]:
         distance = math.hypot(enemy.x - bomb_center[0], enemy.y - bomb_center[1])
-        if distance < current_radius:
-            if enemy not in bomb_hit_enemies:
-                enemy.hp -= bomb_damage
-                bomb_hit_enemies.add(enemy)
-                if enemy.hp <= 0:
-                    enemies.remove(enemy)
-                    enemy_destroyed_sound.play()
+        if distance < current_radius and enemy not in bomb_hit_enemies:
+            enemy.hp -= bomb_damage
+            bomb_hit_enemies.add(enemy)
+            if enemy.hp <= 0:
+                enemies.remove(enemy)
+                enemy_destroyed_sound.play()
     # Deactivate the bomb effect after bomb_duration seconds.
     if elapsed >= bomb_duration:
         bomb_active = False
 
+
 # ------------------------------ #
 #   Laser Beam Function  #
 # ------------------------------ #
+
 
 def draw_laser_beams():
     global laser_active, laser_start_time, laser_hit_enemies
     # Choose the "middle" tower: by horizontal distance to SCREEN_WIDTH/2.
     if not towers:
         return
-    main_tower = min(towers, key=lambda t: abs((t.x + t.size/2) - SCREEN_WIDTH/2))
-    tower_center_x = main_tower.x + main_tower.size/2
+    main_tower = min(towers, key=lambda t: abs((t.x + t.size / 2) - SCREEN_WIDTH / 2))
+    tower_center_x = main_tower.x + main_tower.size / 2
 
     # Define vertical region for the laser effect:
     # It should extend from the bottom of the timer bar (say, y = 70)
@@ -210,8 +246,7 @@ def draw_laser_beams():
 
     # Calculate progress parameter over 3 seconds (0 <= t <= 1).
     progress = (time.time() - laser_start_time) / 3.0
-    if progress > 1:
-        progress = 1
+    progress = min(progress, 1)
 
     # Animate the horizontal positions of two beams:
     # At progress=0, both beams start at tower_center_x.
@@ -223,21 +258,39 @@ def draw_laser_beams():
     beam_thickness = 10
 
     # Draw the two vertical beams (from y_top to y_bottom).
-    pygame.draw.line(screen, (0, 0, 255), (left_beam_x, y_top), (left_beam_x, y_bottom), beam_thickness)
-    pygame.draw.line(screen, (0, 0, 255), (right_beam_x, y_top), (right_beam_x, y_bottom), beam_thickness)
+    pygame.draw.line(
+        screen,
+        (0, 0, 255),
+        (left_beam_x, y_top),
+        (left_beam_x, y_bottom),
+        beam_thickness,
+    )
+    pygame.draw.line(
+        screen,
+        (0, 0, 255),
+        (right_beam_x, y_top),
+        (right_beam_x, y_bottom),
+        beam_thickness,
+    )
 
     # Damage detection: For enemies in this vertical region, if their x is within tolerance of either beam, subtract 1 hp.
     tolerance = beam_thickness / 2 + 5
     for enemy in enemies[:]:
-        if y_top <= enemy.y <= y_bottom:
-            if abs(enemy.x - left_beam_x) < tolerance or abs(enemy.x - right_beam_x) < tolerance:
-                if enemy not in laser_hit_enemies:
-                    enemy.hp -= 1
-                    laser_hit_enemies.add(enemy)
-                    if enemy.hp <= 0:
-                        enemies.remove(enemy)
-                        enemy_destroyed_sound.play()
-        
+        if (
+            y_top <= enemy.y <= y_bottom
+            and (
+                abs(enemy.x - left_beam_x) < tolerance
+                or abs(enemy.x - right_beam_x) < tolerance
+            )
+            and enemy not in laser_hit_enemies
+        ):
+            enemy.hp -= 1
+            laser_hit_enemies.add(enemy)
+            if enemy.hp <= 0:
+                enemies.remove(enemy)
+                enemy_destroyed_sound.play()
+
+
 # ------------------------------ #
 #   Tower Projectile Functions   #
 # ------------------------------ #
@@ -247,9 +300,11 @@ def get_tower_projectile_cooldown():
         return max(1, 10 - 2 * (upgrade - 1))
     return None
 
+
 def get_tower_projectile_damage():
     power = buy_menu_options[1]["purchased"]
     return 1 + power
+
 
 class TowerProjectile:
     def __init__(self, start_x, start_y, target_x, target_y, damage):
@@ -258,7 +313,7 @@ class TowerProjectile:
         self.damage = damage
         dx = target_x - start_x
         dy = target_y - start_y
-        dist = (dx**2 + dy**2)**0.5
+        dist = (dx**2 + dy**2) ** 0.5
         if dist == 0:
             self.vx, self.vy = 0, 0
         else:
@@ -266,11 +321,14 @@ class TowerProjectile:
             self.vx = speed * dx / dist
             self.vy = speed * dy / dist
         self.radius = 5
+
     def move(self):
         self.x += self.vx
         self.y += self.vy
+
     def draw(self):
-        pygame.draw.circle(screen, (0,0,0), (int(self.x), int(self.y)), self.radius)
+        pygame.draw.circle(screen, (0, 0, 0), (int(self.x), int(self.y)), self.radius)
+
 
 def fire_tower_projectile():
     global tower_last_projectile_time, tower_projectiles, focused_enemy
@@ -288,10 +346,17 @@ def fire_tower_projectile():
                 tower_center_x = tower.x + tower.size / 2
                 tower_center_y = tower.y + tower.size / 2
                 damage = get_tower_projectile_damage()
-                proj = TowerProjectile(tower_center_x, tower_center_y, focused_enemy.x, focused_enemy.y, damage)
+                proj = TowerProjectile(
+                    tower_center_x,
+                    tower_center_y,
+                    focused_enemy.x,
+                    focused_enemy.y,
+                    damage,
+                )
                 tower_projectiles.append(proj)
             tower_last_projectile_time = current_time
             tower_shoot_sound.play()
+
 
 def update_tower_projectiles():
     global tower_projectiles, enemies
@@ -302,11 +367,17 @@ def update_tower_projectiles():
             tower_projectiles.remove(proj)
             continue
         for enemy in enemies[:]:
-            size_map = {"small": 10, "medium": 15, "large": 20, "extra_large": 25, "boss": 75}
+            size_map = {
+                "small": 10,
+                "medium": 15,
+                "large": 20,
+                "extra_large": 25,
+                "boss": 75,
+            }
             enemy_radius = size_map[enemy.etype]
             dx = enemy.x - proj.x
             dy = enemy.y - proj.y
-            if (dx*dx + dy*dy)**0.5 < enemy_radius + proj.radius:
+            if (dx * dx + dy * dy) ** 0.5 < enemy_radius + proj.radius:
                 enemy.hp -= proj.damage
                 if enemy.hp <= 0:
                     enemies.remove(enemy)
@@ -314,6 +385,7 @@ def update_tower_projectiles():
                 if proj in tower_projectiles:
                     tower_projectiles.remove(proj)
                 break
+
 
 # ------------------------------ #
 #       Shield Function          #
@@ -324,7 +396,10 @@ def draw_shield():
     if shield_active and shield_hp > 0:
         print(f"DEBUG: Shield is being drawn with HP {shield_hp}")
         shield_y = TOWER_Y - 10
-        pygame.draw.line(screen, (0, 0, 255), (0, shield_y), (SCREEN_WIDTH, shield_y), 10)
+        pygame.draw.line(
+            screen, (0, 0, 255), (0, shield_y), (SCREEN_WIDTH, shield_y), 10
+        )
+
 
 def check_shield_damage():
     global shield_hp, tower_hp, shield_active
@@ -351,8 +426,14 @@ def check_shield_damage():
 # ------------------------------ #
 
 # Healing upgrade: key 9 in buy_menu_options.
-healing_intervals = {0: None, 1: 10, 2: 5, 3: 2}  # Level 1: heal every 10s, Level 2: every 5s, Level 3: every 2s
+healing_intervals = {
+    0: None,
+    1: 10,
+    2: 5,
+    3: 2,
+}  # Level 1: heal every 10s, Level 2: every 5s, Level 3: every 2s
 last_heal_time = time.time()  # initialize the timer
+
 
 def heal_tower():
     global tower_hp, last_heal_time
@@ -364,14 +445,17 @@ def heal_tower():
             last_heal_time = time.time()  # Update the global timer
     return last_heal_time
 
+
 # ------------------------------ #
 #       Tower Unit Functions     #
 # ------------------------------ #
+
 
 def get_unit_spawn_interval():
     base_interval = 10
     freq_upgrade = buy_menu_options[4]["purchased"]
     return max(1, base_interval - 2 * freq_upgrade)
+
 
 def get_unit_spawn_count():
     n = buy_menu_options[3]["purchased"]
@@ -379,13 +463,14 @@ def get_unit_spawn_count():
         return 2 ** (n - 1)
     return 0
 
+
 # --- Tower Unit Class Update ---
 class TowerUnit:
     def __init__(self, start_x, start_y, damage=1):
         self.x = start_x
         self.y = start_y
         self.damage = damage
-        self.speed = 20 / 60  
+        self.speed = 20 / 60
         self.radius = 10
         self.target = None
         self.locked_target = None
@@ -396,15 +481,17 @@ class TowerUnit:
         if not enemy_list:
             self.target = None
             return
-        self.target = min(enemy_list, key=lambda enemy: math.hypot(enemy.x - self.x, enemy.y - self.y))
+        self.target = min(
+            enemy_list, key=lambda enemy: math.hypot(enemy.x - self.x, enemy.y - self.y)
+        )
 
         # Define weights for each enemy type.
         weights = {
-            "small": 1.5,      # small enemies are deprioritized
-            "medium": 1.0,     # medium enemies use their actual distance
-            "large": 1.2,      # large enemies are a bit less attractive
+            "small": 1.5,  # small enemies are deprioritized
+            "medium": 1.0,  # medium enemies use their actual distance
+            "large": 1.2,  # large enemies are a bit less attractive
             "extra_large": 1.0,
-            "boss": 0.8,       # boss is considered more urgent to target
+            "boss": 0.8,  # boss is considered more urgent to target
         }
 
         # Define a helper function to calculate weighted distance.
@@ -455,7 +542,10 @@ def update_tower_units():
         if not hasattr(unit, "locked_target") or unit.locked_target is None:
             # Look for the closest enemy from the available pool.
             if available_enemies:
-                candidate = min(available_enemies, key=lambda e: math.hypot(e.x - unit.x, e.y - unit.y))
+                candidate = min(
+                    available_enemies,
+                    key=lambda e: math.hypot(e.x - unit.x, e.y - unit.y),
+                )
                 unit.locked_target = candidate
                 unit.target = candidate
                 available_enemies.remove(candidate)
@@ -468,7 +558,9 @@ def update_tower_units():
     for unit in tower_units:
         if unit.target is None or unit.target not in enemies or unit.target.hp <= 0:
             unit.locked_target = None  # Clear previous lock
-            sorted_candidates = sorted(enemies, key=lambda e: math.hypot(e.x - unit.x, e.y - unit.y))
+            sorted_candidates = sorted(
+                enemies, key=lambda e: math.hypot(e.x - unit.x, e.y - unit.y)
+            )
             unit.target = sorted_candidates[0] if sorted_candidates else None
 
     # STEP 3: Resolve conflicts if multiple units are targeting the same enemy.
@@ -481,18 +573,24 @@ def update_tower_units():
     for enemy, units in enemy_to_units.items():
         if len(units) > 1:
             # Sort units by their distance to this enemy.
-            units_sorted = sorted(units, key=lambda u: math.hypot(u.x - enemy.x, u.y - enemy.y))
+            units_sorted = sorted(
+                units, key=lambda u: math.hypot(u.x - enemy.x, u.y - enemy.y)
+            )
             # The closest unit keeps this target.
             for u in units_sorted[1:]:
                 # Try to assign an alternative candidate.
-                sorted_candidates = sorted(enemies, key=lambda e: math.hypot(e.x - u.x, e.y - u.y))
+                sorted_candidates = sorted(
+                    enemies, key=lambda e: math.hypot(e.x - u.x, e.y - u.y)
+                )
                 new_target = None
                 for cand in sorted_candidates:
                     # Accept cand if either it’s not targeted by any unit or if the unit u is closer than any other unit already targeting cand.
                     conflict = False
                     for other in tower_units:
                         if other is not u and other.target == cand:
-                            if math.hypot(other.x - cand.x, other.y - cand.y) < math.hypot(u.x - cand.x, u.y - cand.y):
+                            if math.hypot(
+                                other.x - cand.x, other.y - cand.y
+                            ) < math.hypot(u.x - cand.x, u.y - cand.y):
                                 conflict = True
                                 break
                     if not conflict:
@@ -515,37 +613,89 @@ def update_tower_units():
                 if unit in tower_units:
                     tower_units.remove(unit)
 
+
 # ------------------------------ #
 #   Enemy Spawn Parameters       #
 # ------------------------------ #
 spawn_intervals = {
-    "small":       [8,4,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    "medium":      [0,0,0,8,6,4,4,3,3,3,3,3,3,3,2,2,2,2,2,2],
-    "large":       [0,0,0,0,60,45,30,25,20,15,15,15,15,15,15,15,12,10,10,9],
-    "extra_large": [0,0,0,0,0,0,0,0,60,45,30,30,30,25,25,25,20,20,20,15],
-    "boss":        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,45,30]
+    "small": [8, 4, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    "medium": [0, 0, 0, 8, 6, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2],
+    "large": [
+        0,
+        0,
+        0,
+        0,
+        60,
+        45,
+        30,
+        25,
+        20,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        12,
+        10,
+        10,
+        9,
+    ],
+    "extra_large": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        60,
+        45,
+        30,
+        30,
+        30,
+        25,
+        25,
+        25,
+        20,
+        20,
+        20,
+        15,
+    ],
+    "boss": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 60, 45, 30],
 }
 quantities = {
-    "small":       [1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,3,3,3,4],
-    "medium":      [0,0,0,1,1,1,1,1,1,1,1,1,1,2,2,2,3,3,3,4],
-    "large":       [0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,2,2,3],
-    "extra_large": [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,2,2],
-    "boss":        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1]
+    "small": [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4],
+    "medium": [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4],
+    "large": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 3],
+    "extra_large": [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2],
+    "boss": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
 }
-last_spawn_time = {etype: 0 for etype in spawn_intervals}
+last_spawn_time = dict.fromkeys(spawn_intervals, 0)
+
 
 class Enemy:
     def __init__(self, etype, hp, speed, damage):
         self.etype = etype
         self.hp = hp
-        self.speed = speed / 60  
+        self.speed = speed / 60
         self.damage = damage
         self.x = random.randint(0, SCREEN_WIDTH - 20)
         self.y = 80
-        size_map = {"small": 10, "medium": 15, "large": 20, "extra_large": 25, "boss": 75}
+        size_map = {
+            "small": 10,
+            "medium": 15,
+            "large": 20,
+            "extra_large": 25,
+            "boss": 75,
+        }
         self.radius = size_map[etype]
         if self.etype == "extra_large":
-            self.last_shot_time = time.time()  # Initialize shooting timer for extra-large enemies
+            self.last_shot_time = (
+                time.time()
+            )  # Initialize shooting timer for extra-large enemies
 
     def move(self):
         self.y += self.speed  # Move enemy downward
@@ -567,48 +717,78 @@ class Enemy:
                 break  # Stop checking further
 
     def draw(self):
-        """ Draw enemies with distinct colors and shapes """
-        size_map = {"small": 10, "medium": 15, "large": 20, "extra_large": 25, "boss": 75}
+        """Draw enemies with distinct colors and shapes"""
+        size_map = {
+            "small": 10,
+            "medium": 15,
+            "large": 20,
+            "extra_large": 25,
+            "boss": 75,
+        }
         color_map = {
-            "small": (255, 0, 0),          # Red
-            "medium": (255, 165, 0),       # Orange
-            "large": (255, 0, 0),          # Red (Triangular)
+            "small": (255, 0, 0),  # Red
+            "medium": (255, 165, 0),  # Orange
+            "large": (255, 0, 0),  # Red (Triangular)
             "extra_large": (128, 0, 128),  # Purple
-            "boss": (139, 0, 0)            # Dark Red
+            "boss": (139, 0, 0),  # Dark Red
         }
 
         if self.etype == "large":  # Draw triangle
             points = [
                 (int(self.x), int(self.y - size_map[self.etype])),
-                (int(self.x - size_map[self.etype]), int(self.y + size_map[self.etype])),
-                (int(self.x + size_map[self.etype]), int(self.y + size_map[self.etype])),
+                (
+                    int(self.x - size_map[self.etype]),
+                    int(self.y + size_map[self.etype]),
+                ),
+                (
+                    int(self.x + size_map[self.etype]),
+                    int(self.y + size_map[self.etype]),
+                ),
             ]
             pygame.draw.polygon(screen, color_map[self.etype], points)
-        
+
         elif self.etype == "boss":  # Draw square
-            pygame.draw.rect(screen, color_map[self.etype], 
-                            (int(self.x - size_map[self.etype] // 2), int(self.y - size_map[self.etype] // 2),
-                            size_map[self.etype], size_map[self.etype]))
+            pygame.draw.rect(
+                screen,
+                color_map[self.etype],
+                (
+                    int(self.x - size_map[self.etype] // 2),
+                    int(self.y - size_map[self.etype] // 2),
+                    size_map[self.etype],
+                    size_map[self.etype],
+                ),
+            )
 
         else:  # Draw circle for small, medium, and extra_large
-            pygame.draw.circle(screen, color_map[self.etype], (int(self.x), int(self.y)), size_map[self.etype])
+            pygame.draw.circle(
+                screen,
+                color_map[self.etype],
+                (int(self.x), int(self.y)),
+                size_map[self.etype],
+            )
 
     def shoot(self):
-            """ Extra Large Enemies shoot projectiles at the tower or tower units """
-            if self.etype != "extra_large":
-                return  # Only extra_large enemies shoot
+        """Extra Large Enemies shoot projectiles at the tower or tower units"""
+        if self.etype != "extra_large":
+            return  # Only extra_large enemies shoot
 
-            global enemy_projectiles  # Ensure we use the correct list
+        global enemy_projectiles  # Ensure we use the correct list
 
-            current_time = time.time()
-            if current_time - self.last_shot_time >= 2.0:  # Fire every 2 seconds
-                self.last_shot_time = current_time
-                if tower_units:
-                    target = min(tower_units, key=lambda unit: math.hypot(unit.x - self.x, unit.y - self.y))
-                else:
-                    target = Tower(TOWER_X + TOWER_SIZE // 2, TOWER_Y)
+        current_time = time.time()
+        if current_time - self.last_shot_time >= 2.0:  # Fire every 2 seconds
+            self.last_shot_time = current_time
+            if tower_units:
+                target = min(
+                    tower_units,
+                    key=lambda unit: math.hypot(unit.x - self.x, unit.y - self.y),
+                )
+            else:
+                target = Tower(TOWER_X + TOWER_SIZE // 2, TOWER_Y)
 
-                enemy_projectiles.append(EnemyProjectile(self.x, self.y, target.x, target.y, damage=2))
+            enemy_projectiles.append(
+                EnemyProjectile(self.x, self.y, target.x, target.y, damage=2)
+            )
+
 
 def spawn_enemies():
     global last_spawn_time, enemies
@@ -630,9 +810,11 @@ def spawn_enemies():
                     enemies.append(Enemy("boss", 100, 4, 100))
             last_spawn_time[etype] = current_time
 
+
 # ------------------------------ #
 #       Enemy Projectiles        #
 # ------------------------------ #
+
 
 class EnemyProjectile:
     def __init__(self, start_x, start_y, target_x, target_y, damage=2):
@@ -654,14 +836,17 @@ class EnemyProjectile:
             self.vy = speed * dy / dist
 
     def move(self):
-        """ Move the projectile """
+        """Move the projectile"""
         self.x += self.vx
         self.y += self.vy
 
     def draw(self):
-        """ Draw the projectile """
-        pygame.draw.circle(screen, (200, 50, 50), (int(self.x), int(self.y)), self.radius)
-    
+        """Draw the projectile"""
+        pygame.draw.circle(
+            screen, (200, 50, 50), (int(self.x), int(self.y)), self.radius
+        )
+
+
 def update_enemy_projectiles():
     global enemy_projectiles, tower_hp, shield_hp, shield_active
     for proj in enemy_projectiles[:]:
@@ -687,6 +872,7 @@ def update_enemy_projectiles():
                 tower_hp = max(0, tower_hp - proj.damage)
                 enemy_projectiles.remove(proj)
 
+
 # ------------------------------ #
 #       Pause Menu Function      #
 # ------------------------------ #
@@ -695,17 +881,17 @@ def pause_menu():
     pause_active = True
     options = ["Continue", "Main Menu"]
     # Start with no option highlighted.
-    selected = None  
+    selected = None
     menu_font = pygame.font.Font(None, 60)
     title_font = pygame.font.Font(None, 80)
     # Do not announce any option until a selection is made.
     pause_start = time.time()
-    
+
     while pause_active:
         screen.fill((0, 0, 0))
         title = title_font.render("Paused", True, (255, 255, 255))
-        screen.blit(title, (SCREEN_WIDTH//2 - title.get_width()//2, 150))
-        
+        screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 150))
+
         # Render each option. If 'selected' is None, no option is highlighted.
         for i, option in enumerate(options):
             if selected is not None and i == selected:
@@ -713,12 +899,12 @@ def pause_menu():
             else:
                 color = (200, 200, 200)
             text = menu_font.render(option, True, color)
-            screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, 300 + i * 70))
-        
+            screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, 300 + i * 70))
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             # Wait for the spacebar to be released before selecting anything.
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_SPACE and selected is None:
@@ -738,34 +924,50 @@ def pause_menu():
                         elif options[selected] == "Main Menu":
                             restart_requested = True
                             return  # Exit pause_menu immediately.
-        
+
         pygame.display.flip()
         clock.tick(30)
     return time.time() - pause_start
+
 
 # ------------------------------ #
 #       Game Over Function       #
 # ------------------------------ #
 
+
 def game_over():
     over_font = pygame.font.Font(None, 100)
-    screen.fill((0,0,0))
-    text = over_font.render("You Lose", True, (255,0,0))
-    screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, SCREEN_HEIGHT//2 - text.get_height()//2))
+    screen.fill((0, 0, 0))
+    text = over_font.render("You Lose", True, (255, 0, 0))
+    screen.blit(
+        text,
+        (
+            SCREEN_WIDTH // 2 - text.get_width() // 2,
+            SCREEN_HEIGHT // 2 - text.get_height() // 2,
+        ),
+    )
     pygame.display.flip()
     time.sleep(5)
     reset_game_state()
     main_menu()
 
+
 def game_won():
     win_font = pygame.font.Font(None, 100)
     screen.fill((0, 0, 0))
     text = win_font.render("You Won!", True, (0, 255, 0))
-    screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, SCREEN_HEIGHT//2 - text.get_height()//2))
+    screen.blit(
+        text,
+        (
+            SCREEN_WIDTH // 2 - text.get_width() // 2,
+            SCREEN_HEIGHT // 2 - text.get_height() // 2,
+        ),
+    )
     pygame.display.flip()
     time.sleep(5)
     reset_game_state()
     main_menu()
+
 
 # ------------------------------ #
 #         UI Functions           #
@@ -775,8 +977,13 @@ def draw_timer_bar():
     bar_x, bar_y = 50, 50
     elapsed = time.time() - game_time_start
     remaining_ratio = max(0, 1 - elapsed / ROUND_DURATION)
-    pygame.draw.rect(screen, (50,50,50), (bar_x, bar_y, bar_width, bar_height))
-    pygame.draw.rect(screen, (0,0,255), (bar_x, bar_y, int(bar_width * remaining_ratio), bar_height))
+    pygame.draw.rect(screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))
+    pygame.draw.rect(
+        screen,
+        (0, 0, 255),
+        (bar_x, bar_y, int(bar_width * remaining_ratio), bar_height),
+    )
+
 
 # --- Health Bar Update ---
 def draw_health_bar():
@@ -784,42 +991,54 @@ def draw_health_bar():
     bar_x, bar_y = 50, 20
     # Use max_tower_hp instead of TOWER_MAX_HP.
     if tower_hp > max_tower_hp * 0.66:
-        color = (0,255,0)
+        color = (0, 255, 0)
     elif tower_hp > max_tower_hp * 0.33:
-        color = (255,255,0)
+        color = (255, 255, 0)
     else:
-        color = (255,0,0)
-    pygame.draw.rect(screen, (50,50,50), (bar_x, bar_y, bar_width, bar_height))
-    pygame.draw.rect(screen, color, (bar_x, bar_y, int(bar_width * (tower_hp / max_tower_hp)), bar_height))
+        color = (255, 0, 0)
+    pygame.draw.rect(screen, (50, 50, 50), (bar_x, bar_y, bar_width, bar_height))
+    pygame.draw.rect(
+        screen,
+        color,
+        (bar_x, bar_y, int(bar_width * (tower_hp / max_tower_hp)), bar_height),
+    )
     health_font = pygame.font.SysFont(None, 36, bold=True)
-    hp_text = health_font.render(f"{tower_hp}", True, (0,0,0))
-    screen.blit(hp_text, (bar_x + (bar_width - hp_text.get_width()) // 2,
-                          bar_y + (bar_height - hp_text.get_height()) // 2))
+    hp_text = health_font.render(f"{tower_hp}", True, (0, 0, 0))
+    screen.blit(
+        hp_text,
+        (
+            bar_x + (bar_width - hp_text.get_width()) // 2,
+            bar_y + (bar_height - hp_text.get_height()) // 2,
+        ),
+    )
+
 
 def draw_damage_zone():
     zone_rect = pygame.Rect(0, TOWER_Y, SCREEN_WIDTH, SCREEN_HEIGHT - TOWER_Y)
-    pygame.draw.rect(screen, (80,80,80), zone_rect)
+    pygame.draw.rect(screen, (80, 80, 80), zone_rect)
+
 
 # ------------------------------ #
 #       Buy Menu (Grid Layout)   #
 # ------------------------------ #
 initial_buy_menu_options = [
-        {"name": "Add Tower Projectile", "cost": 200, "max": 6, "purchased": 0},
-        {"name": "Increase Projectile Power", "cost": 300, "max": 3, "purchased": 0},
-        {"name": "Recover Tower Health", "cost": 50, "max": 2, "purchased": 0},
-        {"name": "Add Units", "cost": 200, "max": 2, "purchased": 0},
-        {"name": "Increase Unit Frequency", "cost": 300, "max": 2, "purchased": 0},
-        {"name": "Extra Tower", "cost": 1500, "max": 2, "purchased": 0},
-        {"name": "Buy Bomb", "cost": 2000, "max": 1, "purchased": 0},
-        {"name": "Upgrade Bomb Frequency", "cost": 3000, "max": 1, "purchased": 0},
-        {"name": "Laser Beam", "cost": 1200, "max": 1, "purchased": 0},
-        {"name": "Add Healing", "cost": 750, "max": 3, "purchased": 0},  
-        {"name": "Add Shield", "cost": 1000, "max": 1, "purchased": 0},
-        {"name": "Upgrade Shield", "cost": 1500, "max": 3, "purchased": 0}
-    ]
+    {"name": "Add Tower Projectile", "cost": 200, "max": 6, "purchased": 0},
+    {"name": "Increase Projectile Power", "cost": 300, "max": 3, "purchased": 0},
+    {"name": "Recover Tower Health", "cost": 50, "max": 2, "purchased": 0},
+    {"name": "Add Units", "cost": 200, "max": 2, "purchased": 0},
+    {"name": "Increase Unit Frequency", "cost": 300, "max": 2, "purchased": 0},
+    {"name": "Extra Tower", "cost": 1500, "max": 2, "purchased": 0},
+    {"name": "Buy Bomb", "cost": 2000, "max": 1, "purchased": 0},
+    {"name": "Upgrade Bomb Frequency", "cost": 3000, "max": 1, "purchased": 0},
+    {"name": "Laser Beam", "cost": 1200, "max": 1, "purchased": 0},
+    {"name": "Add Healing", "cost": 750, "max": 3, "purchased": 0},
+    {"name": "Add Shield", "cost": 1000, "max": 1, "purchased": 0},
+    {"name": "Upgrade Shield", "cost": 1500, "max": 3, "purchased": 0},
+]
 
 buy_menu_options = deepcopy(initial_buy_menu_options)
 bottom_buttons = ["Start Level", "Main Menu"]
+
 
 def buy_menu():
     global selected_buy_index, points, wave_number, max_tower_hp, tower_hp, shield_hp, shield_active, max_shield_hp
@@ -827,7 +1046,7 @@ def buy_menu():
     def get_selectable_indices():
         selectable = []
         for i, item in enumerate(buy_menu_options):
-            available = (item["purchased"] < item["max"] and item["cost"] <= points)
+            available = item["purchased"] < item["max"] and item["cost"] <= points
             # For "Increase Projectile Power" (index 1) require at least one Tower Projectile purchased.
             if i == 1 and buy_menu_options[0]["purchased"] < 1:
                 available = False
@@ -851,11 +1070,11 @@ def buy_menu():
     columns = 3  # Keep 3 columns
     rows = math.ceil(total_items / columns)  # Determine rows automatically
 
-    top_margin = SCREEN_HEIGHT * 0.1         # 10% of screen height
-    bottom_margin = SCREEN_HEIGHT * 0.15       # 15% reserved for bottom buttons
-    side_margin = SCREEN_WIDTH * 0.05          # 5% of screen width
-    gap_x = SCREEN_WIDTH * 0.02                # 2% horizontal spacing
-    gap_y = SCREEN_HEIGHT * 0.02               # 2% vertical spacing
+    top_margin = SCREEN_HEIGHT * 0.1  # 10% of screen height
+    bottom_margin = SCREEN_HEIGHT * 0.15  # 15% reserved for bottom buttons
+    side_margin = SCREEN_WIDTH * 0.05  # 5% of screen width
+    gap_x = SCREEN_WIDTH * 0.02  # 2% horizontal spacing
+    gap_y = SCREEN_HEIGHT * 0.02  # 2% vertical spacing
 
     button_area_height = SCREEN_HEIGHT - (top_margin + bottom_margin)
     button_width = (SCREEN_WIDTH - 2 * side_margin - (columns - 1) * gap_x) / columns
@@ -872,7 +1091,9 @@ def buy_menu():
     in_buy = True
     selectable_indices = get_selectable_indices()
     if not selectable_indices:
-        selectable_indices = list(range(len(buy_menu_options), len(buy_menu_options) + len(bottom_buttons)))
+        selectable_indices = list(
+            range(len(buy_menu_options), len(buy_menu_options) + len(bottom_buttons))
+        )
     selected_buy_index = selectable_indices[0]
 
     def announce():
@@ -888,7 +1109,7 @@ def buy_menu():
         for event in events:
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.VIDEORESIZE:
                 handle_resize(event)
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -896,7 +1117,7 @@ def buy_menu():
                 close_rect, min_rect = draw_window_controls()
                 if close_rect.collidepoint(mouse_pos):
                     pygame.quit()
-                    exit()
+                    sys.exit()
                 if min_rect.collidepoint(mouse_pos):
                     pygame.display.iconify()
 
@@ -907,10 +1128,17 @@ def buy_menu():
         screen.fill((0, 0, 0))
 
         # Draw Title and Points
-        title = title_font.render(f"Buy Menu - Level {wave_number}", True, (255, 255, 255))
-        screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, SCREEN_HEIGHT * 0.02))
+        title = title_font.render(
+            f"Buy Menu - Level {wave_number}", True, (255, 255, 255)
+        )
+        screen.blit(
+            title, (SCREEN_WIDTH // 2 - title.get_width() // 2, SCREEN_HEIGHT * 0.02)
+        )
         points_text = menu_font.render(f"Points: {points}", True, (255, 255, 0))
-        screen.blit(points_text, (SCREEN_WIDTH // 2 - points_text.get_width() // 2, SCREEN_HEIGHT * 0.08))
+        screen.blit(
+            points_text,
+            (SCREEN_WIDTH // 2 - points_text.get_width() // 2, SCREEN_HEIGHT * 0.08),
+        )
 
         # Draw Buy Menu Buttons
         start_x = side_margin
@@ -923,17 +1151,23 @@ def buy_menu():
             rect = pygame.Rect(x, y, button_width, button_height)
             pygame.draw.rect(screen, (255, 255, 255), rect, 5)
 
-            available = (item["purchased"] < item["max"] and item["cost"] <= points)
+            available = item["purchased"] < item["max"] and item["cost"] <= points
             if i == 1 and buy_menu_options[0]["purchased"] < 1:
                 available = False
             if i == 2 and tower_hp >= max_tower_hp:
                 available = False
-            fill_color = (0, 255, 0) if (available and i == selected_buy_index) else (200, 200, 200)
+            fill_color = (
+                (0, 255, 0)
+                if (available and i == selected_buy_index)
+                else (200, 200, 200)
+            )
             if not available:
                 fill_color = (100, 100, 100)
             pygame.draw.rect(screen, fill_color, rect)
 
-            text = menu_font.render(f"{item['name']} ({item['cost']} pts)", True, (0, 0, 0))
+            text = menu_font.render(
+                f"{item['name']} ({item['cost']} pts)", True, (0, 0, 0)
+            )
             text_rect = text.get_rect(center=rect.center)
             screen.blit(text, text_rect)
 
@@ -943,7 +1177,11 @@ def buy_menu():
             x = side_margin + j * (bottom_button_width + gap_x)
             rect = pygame.Rect(x, bottom_y, bottom_button_width, bottom_box_height)
             pygame.draw.rect(screen, (255, 255, 255), rect, 5)
-            fill_color = (0, 255, 0) if (len(buy_menu_options) + j) == selected_buy_index else (200, 200, 200)
+            fill_color = (
+                (0, 255, 0)
+                if (len(buy_menu_options) + j) == selected_buy_index
+                else (200, 200, 200)
+            )
             pygame.draw.rect(screen, fill_color, rect)
             text = menu_font.render(btn, True, (0, 0, 0))
             text_rect = text.get_rect(center=rect.center)
@@ -977,14 +1215,19 @@ def buy_menu():
                             if tower_hp < max_tower_hp:
                                 heal_amount = min(50, max_tower_hp - tower_hp)
                                 tower_hp += heal_amount
-                                speak(f"Recovered {heal_amount} HP. Current HP: {tower_hp}")
+                                speak(
+                                    f"Recovered {heal_amount} HP. Current HP: {tower_hp}"
+                                )
                                 item["purchased"] += 1
                                 points -= item["cost"]
                             # Gray out if tower is fully healed
                             if tower_hp >= max_tower_hp:
                                 item["purchased"] = item["max"]
                         else:
-                            if item["purchased"] < item["max"] and points >= item["cost"]:
+                            if (
+                                item["purchased"] < item["max"]
+                                and points >= item["cost"]
+                            ):
                                 points -= item["cost"]
                                 item["purchased"] += 1
                                 speak(f"Purchased {item['name']}")
@@ -992,19 +1235,26 @@ def buy_menu():
                                 shield_active = True
                                 shield_hp = 50
                                 max_shield_hp = 50
-                                print(f"DEBUG: Shield purchased! shield_active={shield_active}, shield_hp={shield_hp}")
+                                print(
+                                    f"DEBUG: Shield purchased! shield_active={shield_active}, shield_hp={shield_hp}"
+                                )
                                 speak("Shield activated")
                             elif item["name"] == "Upgrade Shield":
                                 if shield_active:
                                     max_shield_hp += 25  # Increase max shield HP
-                                    shield_hp = max_shield_hp  # Fully restore shield on upgrade
-                                    print(f"DEBUG: Shield upgraded! New max HP: {max_shield_hp}, current HP: {shield_hp}")
+                                    shield_hp = (
+                                        max_shield_hp  # Fully restore shield on upgrade
+                                    )
+                                    print(
+                                        f"DEBUG: Shield upgraded! New max HP: {max_shield_hp}, current HP: {shield_hp}"
+                                    )
                                     speak(f"Shield upgraded to {max_shield_hp} HP")
                                 else:
                                     speak("You need to buy the shield first!")
 
         pygame.display.flip()
         clock.tick(30)
+
 
 # ------------------------------ #
 #       Game Level Loop          #
@@ -1035,7 +1285,9 @@ def game_level():
         shield_active = True
         max_shield_hp = 50 + 25 * buy_menu_options[11]["purchased"]
         shield_hp = max_shield_hp
-        print(f"DEBUG: Shield reset for new level: shield_active={shield_active}, shield_hp={shield_hp}")
+        print(
+            f"DEBUG: Shield reset for new level: shield_active={shield_active}, shield_hp={shield_hp}"
+        )
     else:
         shield_active = False
         shield_hp = 0
@@ -1048,16 +1300,16 @@ def game_level():
         towers.append(Tower(TOWER_X + TOWER_SIZE + margin, TOWER_Y))
     if buy_menu_options[5]["purchased"] >= 2:
         towers.insert(0, Tower(TOWER_X - TOWER_SIZE - margin, TOWER_Y))
-    
+
     last_laser_time = time.time()
     laser_active = False
     laser_hit_enemies = set()
-    
+
     # Reset bomb timer.
     bomb_last_time = time.time()
     bomb_active = False
     bomb_hit_enemies = set()
-    
+
     level_running = True
 
     while level_running:
@@ -1065,22 +1317,21 @@ def game_level():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                sys.exit()
             if event.type == pygame.VIDEORESIZE:
                 handle_resize(event)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
                     if return_hold_start is None:
                         return_hold_start = time.time()
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_RETURN:
-                    return_hold_start = None
+            if event.type == pygame.KEYUP and event.key == pygame.K_RETURN:
+                return_hold_start = None
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
                 close_rect, min_rect = draw_window_controls()
                 if close_rect.collidepoint(mouse_pos):
                     pygame.quit()
-                    exit()
+                    sys.exit()
                 if min_rect.collidepoint(mouse_pos):
                     pygame.display.iconify()
 
@@ -1117,7 +1368,7 @@ def game_level():
 
         # Clear the screen.
         screen.fill((255, 255, 255))
-        
+
         # Draw UI elements.
         draw_health_bar()
         draw_timer_bar()
@@ -1127,8 +1378,10 @@ def game_level():
 
         # Draw towers.
         for tower in towers:
-            pygame.draw.rect(screen, (0, 0, 255), (tower.x, tower.y, tower.size, tower.size))
-        
+            pygame.draw.rect(
+                screen, (0, 0, 255), (tower.x, tower.y, tower.size, tower.size)
+            )
+
         # Spawn and draw enemies.
         spawn_enemies()
         for enemy in enemies:
@@ -1141,7 +1394,7 @@ def game_level():
         fire_tower_projectile()
         update_tower_projectiles()
         update_enemy_projectiles()
-        
+
         # Spawn and update tower units.
         if time.time() - tower_last_unit_spawn_time >= get_unit_spawn_interval():
             count = get_unit_spawn_count()
@@ -1164,7 +1417,7 @@ def game_level():
         # Draw bomb effect if active.
         if bomb_active:
             drop_bomb_effect()
-        
+
         draw_window_controls()
         pygame.display.flip()
         clock.tick(60)
@@ -1182,9 +1435,11 @@ def game_level():
     points += level_points
     speak(f"Level complete. You earned {level_points} points.")
 
+
 # ------------------------------ #
 #       Reset Game State         #
 # ------------------------------ #
+
 
 def reset_game_state():
     global wave_number, points, tower_hp, max_tower_hp, enemies, tower_projectiles, tower_units, last_spawn_time, buy_menu_options, towers, tower_last_projectile_time, shield_hp, max_shield_hp, shield_active
@@ -1214,12 +1469,13 @@ def reset_game_state():
         {"name": "Buy Bomb", "cost": 2000, "max": 1, "purchased": 0},
         {"name": "Upgrade Bomb Frequency", "cost": 5000, "max": 1, "purchased": 0},
         {"name": "Laser Beam", "cost": 1200, "max": 1, "purchased": 0},
-        {"name": "Add Healing", "cost": 750, "max": 3, "purchased": 0},  
+        {"name": "Add Healing", "cost": 750, "max": 3, "purchased": 0},
         {"name": "Add Shield", "cost": 1000, "max": 1, "purchased": 0},
-        {"name": "Upgrade Shield", "cost": 2000, "max": 3, "purchased": 0}
+        {"name": "Upgrade Shield", "cost": 2000, "max": 3, "purchased": 0},
     ]
 
     buy_menu_options = deepcopy(initial)
+
 
 # ------------------------------ #
 #          Force Focus           #
@@ -1230,6 +1486,7 @@ def get_window_handle():
     info = pygame.display.get_wm_info()
     return info["window"]
 
+
 def force_focus():
     hwnd = get_window_handle()
     try:
@@ -1237,6 +1494,7 @@ def force_focus():
         ctypes.windll.user32.SetForegroundWindow(hwnd)
     except Exception as e:
         print(f"Error forcing focus: {e}")
+
 
 def monitor_focus():
     while True:
@@ -1246,15 +1504,18 @@ def monitor_focus():
         if hwnd != fg_hwnd:
             force_focus()
 
+
 def send_esc_key():
     ctypes.windll.user32.keybd_event(0x1B, 0, 0, 0)
     ctypes.windll.user32.keybd_event(0x1B, 0, 2, 0)
     print("ESC key sent to close Start Menu.")
 
+
 def is_start_menu_open():
     hwnd = win32gui.GetForegroundWindow()
     class_name = win32gui.GetClassName(hwnd)
     return class_name in ["Shell_TrayWnd", "Windows.UI.Core.CoreWindow"]
+
 
 def monitor_start_menu():
     while True:
@@ -1266,6 +1527,7 @@ def monitor_start_menu():
         except Exception as e:
             print(f"Error in monitor_start_menu: {e}")
 
+
 threading.Thread(target=monitor_focus, daemon=True).start()
 threading.Thread(target=monitor_start_menu, daemon=True).start()
 
@@ -1273,13 +1535,15 @@ threading.Thread(target=monitor_start_menu, daemon=True).start()
 #           Main Menu            #
 # ------------------------------ #
 
+
 def close_game():
     # Launch comm-v9.py from the parent directory.
     current_dir = os.path.dirname(os.path.abspath(__file__))
     comm_v9_path = os.path.join(current_dir, "..", "comm-v9.py")
     subprocess.Popen(["python", comm_v9_path])
     pygame.quit()
-    exit()
+    sys.exit()
+
 
 def main_menu():
     # A full reset of game state – wave_number resets to 1.
@@ -1289,7 +1553,7 @@ def main_menu():
     menu_font = pygame.font.Font(None, 60)
     title_font = pygame.font.Font(None, 120)
     speak(menu_options[selected])
-    
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -1325,6 +1589,7 @@ def main_menu():
         pygame.display.flip()
         clock.tick(30)
 
+
 def main():
     global restart_requested, wave_number
     while True:
@@ -1345,6 +1610,7 @@ def main():
         # If we've passed level 20, the player has won.
         if wave_number > 20:
             game_won()
+
 
 if __name__ == "__main__":
     main()
