@@ -9,7 +9,6 @@ Provides easy access to main applications and utilities.
 from pathlib import Path
 import subprocess
 import sys
-from typing import Dict, List, Optional
 
 # Constants
 MAIN_SCRIPT = "comm-v10.py"

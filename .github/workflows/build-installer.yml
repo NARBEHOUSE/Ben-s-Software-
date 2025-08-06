@@ -1,0 +1,173 @@
+name: Build Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a new release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  UV_VERSION: '0.5.0'
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install UV
+      run: |
+        curl -LsSf https://astral.sh/uv/install.ps1 | powershell
+        echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
+    
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras
+    
+    - name: Install PyInstaller
+      run: |
+        uv add pyinstaller
+    
+    - name: Build executable with PyInstaller
+      run: |
+        uv run python build/build.py
+    
+    - name: Verify executable
+      run: |
+        if (Test-Path "dist/BensAccessibilitySoftware.exe") {
+          Write-Host "✅ Executable created successfully"
+          $size = (Get-Item "dist/BensAccessibilitySoftware.exe").Length / 1MB
+          Write-Host "📏 Size: $([math]::Round($size, 1)) MB"
+        } else {
+          Write-Host "❌ Executable not found"
+          exit 1
+        }
+    
+    - name: Install NSIS
+      run: |
+        choco install nsis -y
+        echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+    
+    - name: Build NSIS installer
+      run: |
+        cd build
+        makensis installer.nsi
+    
+    - name: Verify installer
+      run: |
+        if (Test-Path "build/BensAccessibilitySoftware-Setup.exe") {
+          Write-Host "✅ Installer created successfully"
+          $size = (Get-Item "build/BensAccessibilitySoftware-Setup.exe").Length / 1MB
+          Write-Host "📏 Size: $([math]::Round($size, 1)) MB"
+        } else {
+          Write-Host "❌ Installer not found"
+          exit 1
+        }
+    
+    - name: Calculate checksums
+      run: |
+        $exe_hash = Get-FileHash "dist/BensAccessibilitySoftware.exe" -Algorithm SHA256
+        $installer_hash = Get-FileHash "build/BensAccessibilitySoftware-Setup.exe" -Algorithm SHA256
+        
+        Write-Host "Executable SHA256: $($exe_hash.Hash)"
+        Write-Host "Installer SHA256: $($installer_hash.Hash)"
+        
+        # Save checksums to file
+        @"
+        BensAccessibilitySoftware.exe SHA256: $($exe_hash.Hash)
+        BensAccessibilitySoftware-Setup.exe SHA256: $($installer_hash.Hash)
+        "@ | Out-File -FilePath "checksums.txt" -Encoding UTF8
+    
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BensAccessibilitySoftware-Executable
+        path: dist/BensAccessibilitySoftware.exe
+        retention-days: 30
+    
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: BensAccessibilitySoftware-Installer
+        path: build/BensAccessibilitySoftware-Setup.exe
+        retention-days: 30
+    
+    - name: Upload checksums
+      uses: actions/upload-artifact@v4
+      with:
+        name: Checksums
+        path: checksums.txt
+        retention-days: 30
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.create_release == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/BensAccessibilitySoftware.exe
+          build/BensAccessibilitySoftware-Setup.exe
+          checksums.txt
+        body: |
+          ## Ben's Accessibility Software Release
+          
+          ### 🎯 What's Included
+          - **BensAccessibilitySoftware.exe** - Standalone executable (no installation required)
+          - **BensAccessibilitySoftware-Setup.exe** - Full installer with Start Menu shortcuts
+
+          ### 🔧 Installation Options
+
+          #### Option 1: Standalone Executable
+          1. Download `BensAccessibilitySoftware.exe`
+          2. Run directly (requires administrator privileges)
+          3. No installation needed
+
+          #### Option 2: Full Installer (Recommended)
+          1. Download `BensAccessibilitySoftware-Setup.exe`
+          2. Run as administrator
+          3. Follow installation wizard
+          4. Creates Start Menu shortcuts and desktop shortcut
+          
+          ### ⚠️ Administrator Rights Required
+          This software requires administrator privileges because it:
+          - Uses system-wide mouse/keyboard control for accessibility
+          - Accesses Windows Speech API (SAPI) at system level
+          - Monitors and controls other applications
+          - Provides assistive technology features
+          
+          ### 🔒 Security
+          - All files are built from source code in this repository
+          - SHA256 checksums provided for verification
+          - No external dependencies bundled beyond what's listed in pyproject.toml
+          
+          ### 🐛 Issues
+          If you encounter any issues, please report them in the [Issues](https://github.com/NARBEHOUSE/Ben-s-Software-/issues) section.
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Notify build completion
+      run: |
+        Write-Host "🎉 Build completed successfully!"
+        Write-Host "📦 Artifacts created:"
+        Write-Host "   - Standalone executable: dist/BensAccessibilitySoftware.exe"
+        Write-Host "   - Windows installer: build/BensAccessibilitySoftware-Setup.exe"
+        Write-Host "   - Checksums: checksums.txt"

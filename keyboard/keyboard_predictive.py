@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import threading
 import time
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict
 import urllib.error
 import urllib.parse
 import urllib.request

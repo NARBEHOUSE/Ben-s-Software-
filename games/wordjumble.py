@@ -9,7 +9,6 @@ import threading
 import time
 import tkinter as tk
 from tkinter import messagebox
-from typing import List, Dict, Optional, Tuple
 
 import pandas as pd
 import pyttsx3

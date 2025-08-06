@@ -6,12 +6,12 @@ Shared utilities module for Ben's Accessibility Software.
 Consolidates duplicate functions across the codebase.
 """
 
+import json
 from pathlib import Path
 import queue
 import subprocess
 import sys
 import threading
-import json
 
 try:
     import tkinter as tk
@@ -145,10 +145,10 @@ class TTSManager:
         self.queue = queue.Queue()
         self.lock = threading.Lock()
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
-        
+
         # Load TTS configuration
         load_tts_config()
-        
+
         self._initialize_client()
         self._apply_saved_settings()
         self.worker_thread.start()
@@ -156,11 +156,11 @@ class TTSManager:
     def _initialize_client(self):
         """Initialize TTS client based on configuration priority."""
         engine_priority = get_tts_config("engine_priority", ["sapi", "espeak", "google", "pyttsx3"])
-        
+
         for engine in engine_priority:
             if self._try_initialize_engine(engine):
                 return
-        
+
         print("❌ All TTS engines failed to initialize")
         self.client = None
 
@@ -535,7 +535,8 @@ def create_control_bar(parent, on_minimize=None, on_close=None, title="Applicati
     if on_minimize is None:
         on_minimize = getattr(parent, "iconify", lambda: None)
     if on_close is None:
-        on_close = lambda: quit_to_main(parent)
+        def on_close():
+            return quit_to_main(parent)
 
     bar = tk.Frame(parent, bg="gray20")
     bar.pack(fill="x", side="top")

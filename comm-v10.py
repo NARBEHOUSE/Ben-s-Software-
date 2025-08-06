@@ -11,7 +11,7 @@ import subprocess
 import threading
 import time
 import tkinter as tk
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 import pyautogui
@@ -238,7 +238,6 @@ def bring_application_to_focus():
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-import os
 import threading
 import time
 import urllib.parse
@@ -1585,7 +1584,7 @@ class GamesPage(MenuFrame):
 
         for file_path in sorted(self.games_dir.iterdir()):
             # Only include Python scripts; skip dunders and non‑py files
-            if not file_path.suffix == ".py" or file_path.name.startswith("__"):
+            if file_path.suffix != ".py" or file_path.name.startswith("__"):
                 continue
 
             title = self._filename_to_title(file_path.name)
