@@ -1,15 +1,16 @@
 import ctypes
 from functools import partial
-import os
 import random
-import subprocess
 import sys
 import threading
 import time
 import tkinter as tk
 
-import pyttsx3
 import win32gui
+
+# Import shared utilities
+sys.path.insert(0, str(__file__).rsplit("/", 2)[0])  # Add project root to path
+from shared import speak, create_tts_button, quit_to_main
 
 
 class TicTacToeGame(tk.Tk):
@@ -31,9 +32,7 @@ class TicTacToeGame(tk.Tk):
         )
         close_btn.pack(side="right", padx=5, pady=5)
 
-        # Initialize TTS engine and a lock for thread-safety.
-        self.tts_engine = pyttsx3.init()
-        self.tts_lock = threading.Lock()
+        # TTS will be handled by shared utilities
 
         # Scanning state variables:
         self.current_mode = (
@@ -139,28 +138,9 @@ class TicTacToeGame(tk.Tk):
                 print(f"Error in monitor_start_menu: {e}")
             time.sleep(0.5)  # Adjust frequency as needed
 
-    # --- TTS Methods (with lock) ---
+    # --- TTS Methods (using shared utilities) ---
     def say_text(self, text):
-        threading.Thread(target=self._speak, args=(text,)).start()
-
-    def _speak(self, text):
-        with self.tts_lock:
-            self.tts_engine.say(text)
-            self.tts_engine.runAndWait()
-
-    # --- Helper for Creating Buttons with TTS (for menus/pauses) ---
-    def create_tts_button(self, parent, text, command, font_size=36, pady=10):
-        btn = tk.Button(
-            parent,
-            text=text,
-            command=command,
-            font=("Arial", font_size),
-            bg="gray",
-            activebackground="gray",
-        )
-        btn.pack(pady=pady)
-        btn.bind("<Enter>", lambda e: self.say_text(text))
-        return btn
+        speak(text)
 
     # --- Main Menu ---
     def show_main_menu(self):
@@ -606,14 +586,7 @@ class TicTacToeGame(tk.Tk):
         self.update_game_board_scan_highlight()
 
     def on_exit(self):
-        self.destroy()
-        try:
-            # Get the parent directory (root folder of the project)
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            script_path = os.path.join(project_root, "Comm-v9.py")
-            subprocess.Popen([sys.executable, script_path])
-        except Exception as e:
-            print("Failed to launch Comm-v9.py:", e)
+        quit_to_main(self)
 
 
 if __name__ == "__main__":

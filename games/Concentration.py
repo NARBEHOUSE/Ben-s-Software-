@@ -1,14 +1,14 @@
 import ctypes
 from functools import partial
-import os
 import random
-import subprocess
 import sys
 import threading
 import time
 import tkinter as tk
 
-import pyttsx3
+# Import shared utilities
+sys.path.insert(0, str(__file__).rsplit("/", 2)[0])  # Add project root to path
+from shared import speak, create_tts_button, quit_to_main
 import win32gui
 
 
@@ -29,9 +29,7 @@ class MemoryGame(tk.Tk):
         )
         self.monitor_start_menu_thread.start()
 
-        # Initialize TTS engine
-        self.tts_engine = pyttsx3.init()
-        self.tts_lock = threading.Lock()
+        # TTS will be handled by shared utilities
 
         # Player mode state
         self.two_player_mode = False
@@ -157,25 +155,7 @@ class MemoryGame(tk.Tk):
 
     # TTS helper methods
     def say_text(self, text):
-        threading.Thread(target=self._speak, args=(text,)).start()
-
-    def _speak(self, text):
-        with self.tts_lock:
-            self.tts_engine.say(text)
-            self.tts_engine.runAndWait()
-
-    def create_tts_button(self, parent, text, command, font_size=36, pady=10):
-        btn = tk.Button(
-            parent,
-            text=text,
-            command=command,
-            font=("Arial", font_size),
-            bg="gray",
-            activebackground="gray",
-        )
-        btn.pack(pady=pady)
-        btn.bind("<Enter>", lambda e: self.say_text(text))
-        return btn
+        speak(text)
 
     # ------- Main Menus -------
     def show_player_mode_menu(self):
@@ -631,13 +611,7 @@ class MemoryGame(tk.Tk):
         self.after(5000, self.show_player_mode_menu)
 
     def on_exit(self):
-        self.destroy()
-        try:
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            script_path = os.path.join(project_root, "Comm-v9.py")
-            subprocess.Popen([sys.executable, script_path])
-        except Exception as e:
-            print("Failed to launch Comm-v9.py:", e)
+        quit_to_main(self)
 
 
 if __name__ == "__main__":

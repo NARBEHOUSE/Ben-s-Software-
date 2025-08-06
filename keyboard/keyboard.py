@@ -741,14 +741,9 @@ class KeyboardFrame(tk.Frame):
 
     def open_and_exit(self, script_name):
         """Open a new Python script in the parent directory and close the current application."""
-        try:
-            # Get the directory that contains the current file, then its parent directory.
-            parent_dir = os.path.dirname(os.path.dirname(__file__))
-            script_path = os.path.join(parent_dir, script_name)
-            subprocess.Popen([sys.executable, script_path])
-            self.parent.destroy()
-        except Exception as e:
-            print(f"Failed to open script {script_name}: {e}")
+        from shared import launch_script
+
+        launch_script(script_name, close_current=True)
 
     def read_text_tts(self):
         """Reads the current text with TTS and tracks word usage after 3 triggers."""

@@ -181,10 +181,9 @@ class TriviaApp(tk.Tk):
         self.frame.pack(expand=True, fill="both")
 
     def quit_to_main(self):
-        menu = os.path.join(ROOT_DIR, "comm-v10.py")
-        if os.path.isfile(menu):
-            subprocess.Popen([sys.executable, menu])
-        self.destroy()
+        from shared import quit_to_main
+
+        quit_to_main(self)
 
         # ---------------- Monitor Focus & Close Start Menu-------------
 
@@ -242,7 +241,7 @@ class HomePage(MenuFrame):
         super().__init__(app, "Trivia Game")
         s = app.ui_scale
 
-        if os.path.isfile(TRIVIA_IMG):
+        if TRIVIA_IMG.exists():
             img = tk.PhotoImage(file=TRIVIA_IMG)
             # auto-scale header image
             w = img.width()
@@ -285,7 +284,7 @@ class GamePage(MenuFrame):
         s = app.ui_scale
 
         # header image
-        if os.path.isfile(TRIVIA_IMG):
+        if TRIVIA_IMG.exists():
             img = tk.PhotoImage(file=TRIVIA_IMG)
             w, h = img.width(), img.height()
             max_w = int(self.winfo_screenwidth() * 0.6)
