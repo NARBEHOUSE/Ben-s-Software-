@@ -11,6 +11,7 @@ import queue
 import subprocess
 import sys
 import threading
+import json
 
 try:
     import tkinter as tk
@@ -59,6 +60,78 @@ except ImportError:
     TTS_WRAPPER_AVAILABLE = False
 
 
+# TTS Configuration
+TTS_CONFIG_FILE = Path(__file__).parent / "tts_config.json"
+
+# Default TTS configuration
+DEFAULT_TTS_CONFIG = {
+    "engine_priority": ["sapi", "espeak", "google", "pyttsx3"],
+    "preferred_voice_id": None,
+    "speech_rate": 200,
+    "speech_volume": 0.8,
+    "auto_save_settings": True,
+    "azure": {
+        "subscription_key": None,
+        "region": "eastus",
+        "voice_name": "en-US-AriaNeural",
+        "language": "en-US",
+        "output_format": "audio-16khz-32kbitrate-mono-mp3"
+    },
+    "elevenlabs": {
+        "api_key": None,
+        "voice_id": "21m00Tcm4TlvDq8ikWAM",
+        "model_id": "eleven_monolingual_v1"
+    },
+    "openai": {
+        "api_key": None,
+        "model": "tts-1",
+        "voice": "alloy"
+    }
+}
+
+# Global TTS configuration
+tts_config = DEFAULT_TTS_CONFIG.copy()
+
+
+def load_tts_config():
+    """Load TTS configuration from JSON file."""
+    global tts_config
+    try:
+        if TTS_CONFIG_FILE.exists():
+            with TTS_CONFIG_FILE.open(encoding="utf-8") as file:
+                loaded_config = json.load(file)
+                tts_config = DEFAULT_TTS_CONFIG.copy()
+                tts_config.update(loaded_config)
+                print("✅ TTS configuration loaded successfully")
+        else:
+            save_tts_config()
+            print("📝 Default TTS configuration created")
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"⚠️ TTS config load error: {e}. Using defaults.")
+        tts_config = DEFAULT_TTS_CONFIG.copy()
+
+
+def save_tts_config():
+    """Save current TTS configuration to JSON file."""
+    try:
+        with TTS_CONFIG_FILE.open("w", encoding="utf-8") as file:
+            json.dump(tts_config, file, indent=4)
+    except OSError as e:
+        print(f"⚠️ TTS config save error: {e}")
+
+
+def get_tts_config(key, default=None):
+    """Get a TTS configuration value."""
+    return tts_config.get(key, default)
+
+
+def set_tts_config(key, value):
+    """Set a TTS configuration value and save to file."""
+    tts_config[key] = value
+    if get_tts_config("auto_save_settings", True):
+        save_tts_config()
+
+
 # ------------------------------ #
 #         TTS Management         #
 # ------------------------------ #
@@ -72,57 +145,102 @@ class TTSManager:
         self.queue = queue.Queue()
         self.lock = threading.Lock()
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
+        
+        # Load TTS configuration
+        load_tts_config()
+        
         self._initialize_client()
+        self._apply_saved_settings()
         self.worker_thread.start()
 
     def _initialize_client(self):
-        """Initialize the best available TTS client."""
-        # Try pyttsx3 first on Windows (most reliable)
-        if sys.platform == "win32":
-            try:
-                import pyttsx3
-
-                self.client = pyttsx3.init()
-                print("✅ TTS: Using pyttsx3 (Windows)")
+        """Initialize TTS client based on configuration priority."""
+        engine_priority = get_tts_config("engine_priority", ["sapi", "espeak", "google", "pyttsx3"])
+        
+        for engine in engine_priority:
+            if self._try_initialize_engine(engine):
                 return
-            except Exception as e:
-                print(f"⚠️ pyttsx3 initialization failed: {e}")
+        
+        print("❌ All TTS engines failed to initialize")
+        self.client = None
 
-        if TTS_WRAPPER_AVAILABLE:
-            try:
-                # Try SAPI (Windows)
-                if sys.platform == "win32":
-                    self.client = SAPIClient()
-                    print("✅ TTS: Using SAPI (Windows)")
-                    return
-            except Exception as e:
-                print(f"⚠️ SAPI initialization failed: {e}")
-
-            try:
-                # Try eSpeak (cross-platform, offline)
+    def _try_initialize_engine(self, engine):
+        """Try to initialize a specific TTS engine."""
+        try:
+            if engine == "sapi" and TTS_WRAPPER_AVAILABLE and sys.platform == "win32":
+                self.client = SAPIClient()
+                print("✅ TTS: Using SAPI (Windows)")
+                return True
+            elif engine == "azure" and TTS_WRAPPER_AVAILABLE:
+                azure_config = get_tts_config("azure", {})
+                if azure_config.get("subscription_key"):
+                    from tts_wrapper import AzureClient
+                    self.client = AzureClient(
+                        subscription_key=azure_config["subscription_key"],
+                        region=azure_config.get("region", "eastus")
+                    )
+                    # Apply Azure-specific settings
+                    if azure_config.get("voice_name"):
+                        self.client.set_voice(azure_config["voice_name"])
+                    print("✅ TTS: Using Azure Cognitive Services")
+                    return True
+                else:
+                    print("⚠️ Azure TTS: No subscription key configured")
+            elif engine == "elevenlabs" and TTS_WRAPPER_AVAILABLE:
+                elevenlabs_config = get_tts_config("elevenlabs", {})
+                if elevenlabs_config.get("api_key"):
+                    from tts_wrapper import ElevenLabsClient
+                    self.client = ElevenLabsClient(api_key=elevenlabs_config["api_key"])
+                    if elevenlabs_config.get("voice_id"):
+                        self.client.set_voice(elevenlabs_config["voice_id"])
+                    print("✅ TTS: Using ElevenLabs")
+                    return True
+                else:
+                    print("⚠️ ElevenLabs TTS: No API key configured")
+            elif engine == "openai" and TTS_WRAPPER_AVAILABLE:
+                openai_config = get_tts_config("openai", {})
+                if openai_config.get("api_key"):
+                    from tts_wrapper import OpenAIClient
+                    self.client = OpenAIClient(api_key=openai_config["api_key"])
+                    print("✅ TTS: Using OpenAI TTS")
+                    return True
+                else:
+                    print("⚠️ OpenAI TTS: No API key configured")
+            elif engine == "espeak" and TTS_WRAPPER_AVAILABLE:
                 self.client = eSpeakClient()
                 print("✅ TTS: Using eSpeak (offline)")
-                return
-            except Exception as e:
-                print(f"⚠️ eSpeak initialization failed: {e}")
-
-            try:
-                # Try Google Translate TTS (online, free)
+                return True
+            elif engine in ["google", "googletrans"] and TTS_WRAPPER_AVAILABLE:
                 self.client = GoogleTransClient()
                 print("✅ TTS: Using Google Translate TTS (online)")
-                return
-            except Exception as e:
-                print(f"⚠️ Google TTS initialization failed: {e}")
-
-        # Final fallback to pyttsx3 if not Windows
-        try:
-            import pyttsx3
-
-            self.client = pyttsx3.init()
-            print("✅ TTS: Using pyttsx3 (fallback)")
+                return True
+            elif engine == "pyttsx3":
+                import pyttsx3
+                self.client = pyttsx3.init()
+                print("⚠️ TTS: Using pyttsx3 (fallback)")
+                return True
         except Exception as e:
-            print(f"❌ All TTS engines failed: {e}")
-            self.client = None
+            print(f"⚠️ {engine} initialization failed: {e}")
+        return False
+
+    def _apply_saved_settings(self):
+        """Apply saved TTS settings from configuration."""
+        if not self.client:
+            return
+
+        # Apply saved voice
+        preferred_voice = get_tts_config("preferred_voice_id")
+        if preferred_voice:
+            self.set_voice(preferred_voice)
+
+        # Apply saved volume first
+        self.set_volume(get_tts_config("speech_volume", 0.8))
+
+        # Skip rate setting for SAPI due to division by zero issue
+        # SAPI will use its default rate which should be reasonable
+        if not (TTS_WRAPPER_AVAILABLE and hasattr(self.client, "set_property")):
+            # Only apply rate for non-SAPI engines (like pyttsx3)
+            self.set_rate(get_tts_config("speech_rate", 200))
 
     def _worker(self):
         """Background worker thread for TTS processing."""
@@ -189,8 +307,8 @@ class TTSManager:
 
         return []
 
-    def set_voice(self, voice_id):
-        """Set the TTS voice."""
+    def _set_voice_internal(self, voice_id):
+        """Internal method to set voice."""
         if not self.client:
             return False
 
@@ -207,20 +325,15 @@ class TTSManager:
 
         return False
 
-    def set_rate(self, rate):
-        """Set the speech rate."""
+    def _set_rate_internal(self, rate):
+        """Internal method to set speech rate."""
         if not self.client:
             return False
 
         try:
             if TTS_WRAPPER_AVAILABLE and hasattr(self.client, "set_property"):
-                # Map numeric rate to py3-tts-wrapper rate strings
-                if rate < 150:
-                    self.client.set_property("rate", "slow")
-                elif rate > 250:
-                    self.client.set_property("rate", "fast")
-                else:
-                    self.client.set_property("rate", "medium")
+                # py3-tts-wrapper uses set_property
+                self.client.set_property("rate", rate)
                 return True
             elif hasattr(self.client, "setProperty"):
                 # pyttsx3
@@ -231,16 +344,15 @@ class TTSManager:
 
         return False
 
-    def set_volume(self, volume):
-        """Set the speech volume (0.0 to 1.0)."""
+    def _set_volume_internal(self, volume):
+        """Internal method to set speech volume."""
         if not self.client:
             return False
 
         try:
             if TTS_WRAPPER_AVAILABLE and hasattr(self.client, "set_property"):
-                # Convert 0.0-1.0 to 0-100 for py3-tts-wrapper
-                volume_percent = int(volume * 100)
-                self.client.set_property("volume", str(volume_percent))
+                # py3-tts-wrapper uses set_property
+                self.client.set_property("volume", volume)
                 return True
             elif hasattr(self.client, "setProperty"):
                 # pyttsx3
@@ -250,6 +362,27 @@ class TTSManager:
             print(f"Error setting volume: {e}")
 
         return False
+
+    def set_voice(self, voice_id):
+        """Set the TTS voice and save to config."""
+        success = self._set_voice_internal(voice_id)
+        if success:
+            set_tts_config("preferred_voice_id", voice_id)
+        return success
+
+    def set_rate(self, rate):
+        """Set the speech rate and save to config."""
+        success = self._set_rate_internal(rate)
+        if success:
+            set_tts_config("speech_rate", rate)
+        return success
+
+    def set_volume(self, volume):
+        """Set the speech volume and save to config."""
+        success = self._set_volume_internal(volume)
+        if success:
+            set_tts_config("speech_volume", volume)
+        return success
 
     def stop(self):
         """Stop the TTS worker thread."""

@@ -1,0 +1,10 @@
+{
+    "engine_priority": [
+        "googletrans",
+        "sapi"
+    ],
+    "preferred_voice_id": null,
+    "speech_rate": 200,
+    "speech_volume": 0.8,
+    "auto_save_settings": true
+}
