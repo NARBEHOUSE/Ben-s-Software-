@@ -10,7 +10,7 @@ import win32gui
 
 # Import shared utilities
 sys.path.insert(0, str(__file__).rsplit("/", 2)[0])  # Add project root to path
-from shared import speak, get_data_dir, get_images_dir
+from shared import get_data_dir, get_images_dir, speak
 
 # Path constants using shared utilities
 DATA_DIR = get_data_dir()

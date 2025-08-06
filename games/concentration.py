@@ -8,8 +8,9 @@ import tkinter as tk
 
 # Import shared utilities
 sys.path.insert(0, str(__file__).rsplit("/", 2)[0])  # Add project root to path
-from shared import speak, create_tts_button, quit_to_main
 import win32gui
+
+from shared import quit_to_main, speak
 
 
 class MemoryGame(tk.Tk):

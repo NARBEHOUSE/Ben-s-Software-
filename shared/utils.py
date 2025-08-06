@@ -6,12 +6,11 @@ Shared utilities module for Ben's Accessibility Software.
 Consolidates duplicate functions across the codebase.
 """
 
-import os
+from pathlib import Path
 import queue
 import subprocess
 import sys
 import threading
-from pathlib import Path
 
 try:
     import tkinter as tk
@@ -48,7 +47,7 @@ try:
     # Check if py3-tts-wrapper is installed in site-packages
     spec = importlib.util.find_spec("tts_wrapper")
     if spec and spec.origin and "site-packages" in spec.origin:
-        from tts_wrapper import SAPIClient, GoogleTransClient, eSpeakClient
+        from tts_wrapper import GoogleTransClient, SAPIClient, eSpeakClient
 
         TTS_WRAPPER_AVAILABLE = True
     else:
@@ -56,7 +55,6 @@ try:
 
 except ImportError:
     # Fallback to pyttsx3 if py3-tts-wrapper is not available
-    import pyttsx3
 
     TTS_WRAPPER_AVAILABLE = False
 
@@ -79,9 +77,20 @@ class TTSManager:
 
     def _initialize_client(self):
         """Initialize the best available TTS client."""
+        # Try pyttsx3 first on Windows (most reliable)
+        if sys.platform == "win32":
+            try:
+                import pyttsx3
+
+                self.client = pyttsx3.init()
+                print("✅ TTS: Using pyttsx3 (Windows)")
+                return
+            except Exception as e:
+                print(f"⚠️ pyttsx3 initialization failed: {e}")
+
         if TTS_WRAPPER_AVAILABLE:
             try:
-                # Try SAPI first (Windows)
+                # Try SAPI (Windows)
                 if sys.platform == "win32":
                     self.client = SAPIClient()
                     print("✅ TTS: Using SAPI (Windows)")
@@ -105,7 +114,7 @@ class TTSManager:
             except Exception as e:
                 print(f"⚠️ Google TTS initialization failed: {e}")
 
-        # Fallback to pyttsx3
+        # Final fallback to pyttsx3 if not Windows
         try:
             import pyttsx3
 

@@ -10,7 +10,7 @@ import win32gui
 
 # Import shared utilities
 sys.path.insert(0, str(__file__).rsplit("/", 2)[0])  # Add project root to path
-from shared import speak, create_tts_button, quit_to_main
+from shared import quit_to_main, speak
 
 
 class TicTacToeGame(tk.Tk):

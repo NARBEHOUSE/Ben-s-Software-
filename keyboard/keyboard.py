@@ -1,9 +1,6 @@
 # © 2025 NARBE House – Licensed under CC BY-NC 4.0
 
 import ctypes
-import os
-import subprocess
-import sys
 import threading
 import time
 import tkinter as tk

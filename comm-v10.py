@@ -1,23 +1,26 @@
 # © 2025 NARBE House – Licensed under CC BY-NC 4.0
 
+from collections import defaultdict
 import ctypes  # For Windows-specific focus handling
+from functools import partial
 import json
 import logging
 import os
 import platform
-import queue
 import subprocess
 import threading
 import time
 import tkinter as tk
 
+import pandas as pd
 import pyautogui
 from pynput import keyboard
-from pyttsx3 import init
 import win32api
 import win32con
 import win32gui
 import win32process
+
+from shared.utils import speak
 
 
 def monitor_app_focus(app_title="Accessible Menu"):
@@ -183,31 +186,7 @@ def log_active_window_title():
         time.sleep(1)
 
 
-# Initialize Text-to-Speech
-engine = init()
-speak_queue = queue.Queue()
-
-
-def speak(text):
-    if speak_queue.qsize() >= 1:
-        with speak_queue.mutex:
-            speak_queue.queue.clear()
-    speak_queue.put(text)
-
-
-def play_speak_queue():
-    while True:
-        text = speak_queue.get()
-        if text is None:
-            speak_queue.task_done()
-            break
-        engine.say(text)
-        engine.runAndWait()
-        speak_queue.task_done()
-
-
-speak_thread = threading.Thread(target=play_speak_queue, daemon=True)
-speak_thread.start()
+# TTS functionality is now handled by shared.utils
 
 
 # Function to get the active window title
@@ -308,10 +287,7 @@ def start_url_server():
 # Start the server in a background thread
 threading.Thread(target=start_url_server, daemon=True).start()
 
-from collections import defaultdict
-import os
-
-import pandas as pd
+# Imports moved to top of file
 
 
 def load_links(file_path="shows.xlsx"):
@@ -1312,8 +1288,7 @@ class CommunicationCategoryMenu(MenuFrame):
         self.create_button_grid(buttons, columns=3)
 
 
-import subprocess
-import time
+# Imports moved to top of file
 
 import pyautogui
 import win32con
@@ -1538,7 +1513,7 @@ class EntertainmentMenuPage(MenuFrame):
         speak("This feature is coming soon")
 
 
-from functools import partial
+# Import moved to top of file
 
 
 class GamesPage(MenuFrame):
@@ -1624,8 +1599,7 @@ class GamesPage(MenuFrame):
             speak("Unable to launch the selected game.")
 
 
-from collections import defaultdict
-import tkinter as tk
+# Imports moved to top of file
 from tkinter.font import Font
 
 
