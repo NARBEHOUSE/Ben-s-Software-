@@ -1,0 +1,76 @@
+{
+    "engine_priority": ["sapi", "azure", "elevenlabs", "openai", "googletrans", "espeak"],
+    "preferred_voice_id": null,
+    "speech_rate": 200,
+    "speech_volume": 0.8,
+    "auto_save_settings": true,
+    
+    "azure": {
+        "subscription_key": null,
+        "region": "eastus",
+        "voice_name": "en-US-AriaNeural",
+        "language": "en-US",
+        "output_format": "audio-16khz-32kbitrate-mono-mp3",
+        "speech_synthesis_voice_name": "en-US-AriaNeural",
+        "speech_synthesis_language": "en-US",
+        "use_neural_voices": true,
+        "prosody": {
+            "rate": "medium",
+            "pitch": "medium", 
+            "volume": "medium"
+        }
+    },
+    
+    "elevenlabs": {
+        "api_key": null,
+        "voice_id": "21m00Tcm4TlvDq8ikWAM",
+        "model_id": "eleven_monolingual_v1",
+        "stability": 0.5,
+        "similarity_boost": 0.5,
+        "style": 0.0,
+        "use_speaker_boost": true
+    },
+    
+    "openai": {
+        "api_key": null,
+        "model": "tts-1",
+        "voice": "alloy",
+        "response_format": "mp3",
+        "speed": 1.0
+    },
+    
+    "googletrans": {
+        "language": "en",
+        "tld": "com",
+        "slow": false
+    },
+    
+    "google_cloud": {
+        "credentials_path": null,
+        "project_id": null,
+        "language_code": "en-US",
+        "voice_name": "en-US-Wavenet-D",
+        "ssml_gender": "NEUTRAL",
+        "audio_encoding": "MP3",
+        "speaking_rate": 1.0,
+        "pitch": 0.0,
+        "volume_gain_db": 0.0
+    },
+    
+    "aws_polly": {
+        "aws_access_key_id": null,
+        "aws_secret_access_key": null,
+        "region_name": "us-east-1",
+        "voice_id": "Joanna",
+        "output_format": "mp3",
+        "language_code": "en-US",
+        "engine": "neural"
+    },
+    
+    "watson": {
+        "api_key": null,
+        "url": "https://api.us-south.text-to-speech.watson.cloud.ibm.com",
+        "voice": "en-US_AllisonV3Voice",
+        "accept": "audio/mp3"
+    }
+}
