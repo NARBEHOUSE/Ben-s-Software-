@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ben’s Keyboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <main>
+      <div class="textbar-container">
+        <div id="textBar" class="textbar" aria-live="polite"></div>
+      </div>
+
+      <div id="predictBar" class="predictbar"></div>
+
+      <div id="keyboard" class="keyboard"></div>
+    </main>
+  </div>
+
+  <!-- Settings menu overlay -->
+  <div id="settingsMenu" class="settings-menu hidden">
+    <div class="settings-header">
+      <h2>Settings</h2>
+    </div>
+    <div id="settingsGrid" class="settings-grid">
+      <button class="settings-item" data-setting="volume-up">
+        <span class="setting-label">Volume +</span>
+        <span class="setting-value">Increase 10%</span>
+      </button>
+      <button class="settings-item" data-setting="volume-down">
+        <span class="setting-label">Volume -</span>
+        <span class="setting-value">Decrease 10%</span>
+      </button>
+      <button class="settings-item" data-setting="theme">
+        <span class="setting-label">Theme</span>
+        <span class="setting-value" id="themeValue">Default</span>
+      </button>
+      <button class="settings-item" data-setting="scan-speed">
+        <span class="setting-label">Scan Speed</span>
+        <span class="setting-value" id="scanSpeedValue">Medium</span>
+      </button>
+      <button class="settings-item" data-setting="voice">
+        <span class="setting-label">Voice</span>
+        <span class="setting-value" id="voiceValue">Default</span>
+      </button>
+      <button class="settings-item" data-setting="close">
+        <span class="setting-label">Close</span>
+        <span class="setting-value">Exit Settings</span>
+      </button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
