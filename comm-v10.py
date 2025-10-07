@@ -1452,13 +1452,100 @@ class CommunicationPageMenu(MenuFrame):
         self.load_buttons()
 
     def open_keyboard_app(self):
+        import subprocess, os, sys, time, threading, requests
+
+        # point to the server script in your "new keyboard" folder
+        kb_dir = os.path.join(os.path.dirname(__file__), "new keyboard")
+        server_py = os.path.join(kb_dir, "server.py")
+        url = "http://127.0.0.1:5000"
+        chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+
+        server_proc = None
+
+        # 1) start server only if not already up
+        def server_is_up():
+            try:
+                r = requests.get(url, timeout=0.5)
+                return r.status_code < 500
+            except Exception:
+                return False
+
         try:
-            script_name = "keyboard.py"
-            script_path = os.path.join(os.path.dirname(__file__), "keyboard", script_name)
-            subprocess.Popen([sys.executable, script_path])
-            self.master.destroy()
+            if not server_is_up():
+                if not os.path.exists(server_py):
+                    print(f"[Keyboard] server.py not found: {server_py}")
+                    speak("Keyboard server not found")
+                    return
+                server_proc = subprocess.Popen([sys.executable, server_py], cwd=kb_dir, shell=False)
+                # wait a few seconds for it to come up
+                for _ in range(40):  # ~10s
+                    if server_is_up():
+                        break
+                    time.sleep(0.25)
+                if not server_is_up():
+                    print("[Keyboard] server did not start")
+                    speak("Could not start keyboard server")
+                    # kill the one we started if it failed
+                    try:
+                        if server_proc and server_proc.poll() is None:
+                            server_proc.terminate()
+                    except Exception:
+                        pass
+                    return
         except Exception as e:
-            print(f"Failed to open keyboard: {e}") 
+            print(f"[Keyboard] error starting server: {e}")
+            speak("Could not start keyboard server")
+            return
+
+        # 2) open Chrome fullscreen to the keyboard
+        try:
+            if os.path.exists(chrome_exe):
+                subprocess.Popen([chrome_exe, "--start-fullscreen", "--no-first-run",
+                                "--no-default-browser-check", url], shell=False)
+            else:
+                # fallback to PATH
+                subprocess.Popen(["start", "chrome", "--start-fullscreen", url], shell=True)
+        except Exception as e:
+            print(f"[Keyboard] failed to open Chrome: {e}")
+            speak("Could not open Chrome")
+            return
+
+        # 3) watcher: when Chrome closes, stop only the server we started
+        def watcher(proc_handle):
+            from psutil import process_iter
+            def chrome_running():
+                for p in process_iter(['name']):
+                    n = p.info.get('name') or ''
+                    if 'chrome' in n.lower():
+                        return True
+                return False
+
+            # wait for Chrome to go away
+            while chrome_running():
+                time.sleep(1.0)
+
+            # stop the server we started (do not touch if we did not start it)
+            if proc_handle and proc_handle.poll() is None:
+                try:
+                    proc_handle.terminate()
+                    # give it a moment
+                    for _ in range(20):
+                        if proc_handle.poll() is not None:
+                            break
+                        time.sleep(0.1)
+                    if proc_handle.poll() is None:
+                        proc_handle.kill()
+                except Exception as e:
+                    print(f"[Keyboard] watcher kill error: {e}")
+
+        threading.Thread(target=watcher, args=(server_proc,), daemon=True).start()
+
+        # optionally minimize this app right away
+        try:
+            self.master.iconify()
+        except Exception:
+            pass
+
 
     # ADD: open Messenger (Discord) app
     def open_messenger_app(self):
