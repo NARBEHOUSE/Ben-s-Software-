@@ -340,10 +340,10 @@ body.theme-light {
 }
 
 body.theme-dark {
-  --bg: #000;
-  --text: #fff;
-  --btn: #add8e6;
-  --btn-text: #000;
+  --bg: #2e2e2e;
+  --text: #ffffff;
+  --btn: #5a5a5a;
+  --btn-text: #ffffff;
 }
 
 body.theme-blue {
@@ -371,6 +371,13 @@ body.theme-orange {
   --bg: #e65100;
   --text: #fff;
   --btn: #ff9800;
+  --btn-text: #000;
+}
+
+body.theme-red {
+  --bg: #ffebee;
+  --text: #000;
+  --btn: #ffcdd2;
   --btn-text: #000;
 }
 

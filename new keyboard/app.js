@@ -152,7 +152,7 @@
   let currentScanSpeed = settings.scanSpeed || "medium";
 
   // Theme management
-  const themes = ["default", "light", "dark", "blue", "green", "purple", "orange"];
+  const themes = ["default", "light", "dark", "blue", "green", "purple", "orange", "red"];
   let currentThemeIndex = themes.indexOf(settings.theme) || 0;
 
   function applyTheme(theme) {
@@ -614,11 +614,29 @@
 
   function readPredictiveTTS() {
     const chips = predictBar.querySelectorAll(".chip");
+    const wordsToSpeak = [];
+    
+    // Collect all non-empty words
     chips.forEach(chip => {
       if (chip.textContent.trim()) {
-        speak(chip.textContent.toLowerCase());
+        wordsToSpeak.push(chip.textContent.trim().toLowerCase());
       }
     });
+    
+    // Speak each word sequentially with a small delay
+    function speakNextWord(index = 0) {
+      if (index < wordsToSpeak.length) {
+        speak(wordsToSpeak[index]);
+        // Wait for the current word to finish, then speak the next one
+        setTimeout(() => {
+          speakNextWord(index + 1);
+        }, 800); // 800ms delay between words
+      }
+    }
+    
+    if (wordsToSpeak.length > 0) {
+      speakNextWord();
+    }
   }
 
   // Settings menu functions
