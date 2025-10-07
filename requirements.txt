@@ -9,4 +9,5 @@ pygame
 pymunk
 pyside6
 discord
-openpyxl
+flask    
+openpyxl  
