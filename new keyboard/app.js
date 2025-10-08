@@ -896,6 +896,9 @@
   }
 
   function renderPredictions() {
+    // Remember if predictive row was highlighted before refresh
+    const wasPredictiveRowHighlighted = (currentRowIndex === 1 && inRowSelectionMode);
+    
     fetch(settings.baseUrl + "/api/hybrid_predictions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -904,39 +907,69 @@
     .then(response => response.json())
     .then(predictions => {
       predictBar.innerHTML = "";
-      predictions.slice(0, 6).forEach((w, index) => {
+      
+      // Ensure we always have 6 chips
+      const predictionArray = Array.isArray(predictions) ? predictions : [];
+      const paddedPredictions = [...predictionArray];
+      while (paddedPredictions.length < 6) {
+        paddedPredictions.push("");
+      }
+      
+      paddedPredictions.slice(0, 6).forEach((w, index) => {
         const chip = document.createElement("button");
         chip.className = "chip";
-        chip.textContent = w;
+        chip.textContent = w || ""; // Handle empty predictions
         chip.disabled = !w;
-        chip.addEventListener("click", () => {
-          if (!w) return;
-          
-          const currentPartialWord = currentWord();
-          let newBuffer = buffer;
-          let context = "";
-          
-          if (currentPartialWord && !buffer.endsWith(" ")) {
-            const beforePartial = buffer.slice(0, -currentPartialWord.length);
-            newBuffer = beforePartial + w + " ";
-            const words = beforePartial.replace(/\|/g, "").trim().split(/\s+/);
-            context = words.filter(word => word.length > 0).join(" ");
-          } else {
-            if (!buffer.endsWith(" ") && buffer.length) newBuffer += " ";
-            newBuffer += w + " ";
-            const words = buffer.replace(/\|/g, "").trim().split(/\s+/);
-            context = words.filter(word => word.length > 0).join(" ");
-          }
-          
-          setBuffer(newBuffer);
-          console.log(`DEBUG: Sending usage - context: "${context}", selected: "${w}"`);
-          pingUsage(context, w);
-        });
+        
+        if (w) { // Only add click handler if word exists
+          chip.addEventListener("click", () => {
+            const currentPartialWord = currentWord();
+            let newBuffer = buffer;
+            let context = "";
+            
+            if (currentPartialWord && !buffer.endsWith(" ")) {
+              const beforePartial = buffer.slice(0, -currentPartialWord.length);
+              newBuffer = beforePartial + w + " ";
+              const words = beforePartial.replace(/\|/g, "").trim().split(/\s+/);
+              context = words.filter(word => word.length > 0).join(" ");
+            } else {
+              if (!buffer.endsWith(" ") && buffer.length) newBuffer += " ";
+              newBuffer += w + " ";
+              const words = buffer.replace(/\|/g, "").trim().split(/\s+/);
+              context = words.filter(word => word.length > 0).join(" ");
+            }
+            
+            setBuffer(newBuffer);
+            console.log(`DEBUG: Sending usage - context: "${context}", selected: "${w}"`);
+            pingUsage(context, w);
+          });
+        }
+        
         predictBar.appendChild(chip);
       });
+      
+      // Restore predictive row highlighting if it was highlighted before
+      if (wasPredictiveRowHighlighted) {
+        highlightPredictiveRow();
+      }
     })
     .catch(error => {
       console.error("Error fetching predictions:", error);
+      
+      // Fallback: create 6 empty chips if prediction fetch fails
+      predictBar.innerHTML = "";
+      for (let i = 0; i < 6; i++) {
+        const chip = document.createElement("button");
+        chip.className = "chip";
+        chip.textContent = "";
+        chip.disabled = true;
+        predictBar.appendChild(chip);
+      }
+      
+      // Restore highlight even on error
+      if (wasPredictiveRowHighlighted) {
+        highlightPredictiveRow();
+      }
     });
   }
 
