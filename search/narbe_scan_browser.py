@@ -425,7 +425,7 @@ class RowDef:
 class Narbe(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("NARBE Scan Keyboard")
+        self.setWindowTitle("NARBE Img+Vid Search")
         self.setStyleSheet("background:#0b0f14; color:#e9eef5;")
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -583,7 +583,7 @@ class Narbe(QtWidgets.QMainWindow):
         v = QtWidgets.QVBoxLayout(kb); v.setContentsMargins(16,16,16,16); v.setSpacing(12)
 
         top = QtWidgets.QHBoxLayout()
-        title = QtWidgets.QLabel("<b>NARBE</b> Scan Keyboard"); title.setStyleSheet("font-size:20px;")
+        title = QtWidgets.QLabel("<b>NARBE</b> Img+Vid Search"); title.setStyleSheet("font-size:20px;")
         self.status = QtWidgets.QLabel("Mode: Rows • Space=next • Enter=select"); self.status.setStyleSheet("color:#9fb6c9; font-size:12px;")
         top.addWidget(title); top.addStretch(1); top.addWidget(self.status)
         v.addLayout(top)
@@ -1172,18 +1172,27 @@ QLineEdit{
             self.bg_timer.start()
 
     def _on_bg_loaded(self, ok: bool):
-        # no-op; polling handles extraction & fallbacks
-        pass
+        # Add debugging for page load status
+        print(f"DEBUG: Page loaded, ok={ok}, current URL: {self.bg.url().toString()}")
+        if self.bg_task:
+            print(f"DEBUG: Loading task: {self.bg_task}, query: {self.bg_query}")
 
     def _bg_tick(self):
         now = QtCore.QDateTime.currentMSecsSinceEpoch()
+        
+        # Add current status debugging
+        current_url = self.bg.url().toString()
+        print(f"DEBUG: Tick - task={self.bg_task}, provider={self.bg_provider}, URL={current_url[:100]}...")
+        
         if now > self.bg_deadline_ms:
             # timed out -> fallback or give up
+            print(f"DEBUG: Timeout reached for {self.bg_task} on {self.bg_provider}")
             if self.bg_task == "images":
                 if self.bg_provider == "google":
                     # Fallback to DuckDuckGo Images (kp=-2 disables safe search)
                     self.bg_provider = "ddg"
                     u = f"https://duckduckgo.com/?q={QtCore.QUrl.toPercentEncoding(self.bg_query).data().decode()}&iar=images&iax=images&ia=images&kp=-2"
+                    print(f"DEBUG: Falling back to DDG: {u}")
                     self.bg.setUrl(QUrl(u))
                     self.bg_deadline_ms = now + 22000
                     return
@@ -1191,6 +1200,7 @@ QLineEdit{
                     # Fallback to Bing images with safesearch off
                     self.bg_provider = "bing"
                     u = f"https://www.bing.com/images/search?q={QtCore.QUrl.toPercentEncoding(self.bg_query).data().decode()}&FORM=HDRSC2&safeSearch=off&adlt=off"
+                    print(f"DEBUG: Falling back to Bing: {u}")
                     self.bg.setUrl(QUrl(u))
                     self.bg_deadline_ms = now + 22000
                     return
@@ -1198,35 +1208,46 @@ QLineEdit{
                     # Fallback to Brave images (explicitly permissive)
                     self.bg_provider = "brave"
                     u = f"https://search.brave.com/images?q={QtCore.QUrl.toPercentEncoding(self.bg_query).data().decode()}&source=web&spellcheck=1&safesearch=off"
+                    print(f"DEBUG: Falling back to Brave: {u}")
                     self.bg.setUrl(QUrl(u))
                     self.bg_deadline_ms = now + 22000
                     return
             # Out of options
+            print(f"DEBUG: No more fallbacks, giving up on {self.bg_task}")
             self.bg_timer.stop()
             self._hide_loading()
             return
 
+        # Give pages more time to load before injecting JS - increase from every 550ms to less frequent
+        elapsed = now - (self.bg_deadline_ms - 25000)  # time since start
+        if elapsed < 3000:  # Wait at least 3 seconds before first JS injection
+            print(f"DEBUG: Waiting for page to load, elapsed: {elapsed}ms")
+            return
+
         # Nudge hydration and accept consent
         try:
-            self.bg.page().runJavaScript(CONSENT_JS)
+            self.bg.page().runJavaScript(CONSENT_JS, 0)
         except Exception:
             pass
         try:
             self.bg.page().runJavaScript(
-                "try{ window.scrollBy(0, Math.max(1400, document.body.scrollHeight/1.5)); setTimeout(()=>window.scrollTo(0,0), 180);}catch(e){}"
+                "try{ window.scrollBy(0, Math.max(1400, document.body.scrollHeight/1.5)); setTimeout(()=>window.scrollTo(0,0), 180);}catch(e){}", 0
             )
         except Exception:
             pass
 
         if self.bg_task == "images":
-            self.bg.page().runJavaScript(INJECT_IMAGES, self._bg_handle_images)
+            self.bg.page().runJavaScript(INJECT_IMAGES, 0, self._bg_handle_images)
         elif self.bg_task == "videos":
-            self.bg.page().runJavaScript(INJECT_VIDEOS, self._bg_handle_videos)
+            self.bg.page().runJavaScript(INJECT_VIDEOS, 0, self._bg_handle_videos)
 
     def _bg_handle_images(self, json_str):
+        print(f"DEBUG: Image extraction returned: {len(json_str or '')} chars")
         try:
             items = json.loads(json_str or "[]")
-        except Exception:
+            print(f"DEBUG: Parsed {len(items)} image items")
+        except Exception as e:
+            print(f"DEBUG: JSON parse error: {e}")
             items = []
 
         # De-dupe and accumulate up to IMG_MAX
@@ -1239,6 +1260,8 @@ QLineEdit{
             if len(self._img_accum) >= self.IMG_MAX:
                 break
 
+        print(f"DEBUG: Total accumulated images: {len(self._img_accum)}")
+
         # Enough collected: prefetch and stop
         if len(self._img_accum) >= self.IMG_MAX:
             self.bg_timer.stop()
@@ -1247,20 +1270,28 @@ QLineEdit{
 
         # Otherwise move to next queued URL to broaden coverage
         if self._img_queue:
-            self.bg.setUrl(QUrl(self._img_queue.pop(0)))
+            next_url = self._img_queue.pop(0)
+            print(f"DEBUG: Moving to next URL: {next_url}")
+            self.bg.setUrl(QUrl(next_url))
             now = QtCore.QDateTime.currentMSecsSinceEpoch()
             self.bg_deadline_ms = now + 22000
         else:
             # No more sources; if we have some, use them; else keep polling until deadline fallback
             if self._img_accum:
+                print(f"DEBUG: No more URLs, using {len(self._img_accum)} accumulated images")
                 self.bg_timer.stop()
                 self._prefetch_images(self._img_accum)
             # else: keep polling; _bg_tick deadline will hide loading when timeouts occur
 
     def _bg_handle_videos(self, json_str):
+        print(f"DEBUG: Video extraction returned: {len(json_str or '')} chars")
         try:
             vids = json.loads(json_str or "[]")
-        except Exception:
+            print(f"DEBUG: Parsed {len(vids)} video items")
+            if vids:
+                print(f"DEBUG: First video: {vids[0]}")
+        except Exception as e:
+            print(f"DEBUG: JSON parse error: {e}")
             vids = []
         if vids:
             self.bg_timer.stop()
@@ -1273,6 +1304,7 @@ QLineEdit{
             self._overlay_apply()
         else:
             # keep polling; YouTube can be slow to hydrate
+            print("DEBUG: No videos found, continuing to poll...")
             pass
 
     # ---------- Image prefetch
@@ -1597,7 +1629,7 @@ class _ImageFetchWorker(QtCore.QObject):
                     else:
                         continue
 
-                    # Determine extension and skip risky formats (gif/webp), no Qt decoding in worker
+                    # Determine extension - now including GIF support
                     low_url = url.lower().split("?")[0]
                     ext_hint = ""
                     if low_url.endswith(".png"): ext_hint = "png"
@@ -1605,18 +1637,19 @@ class _ImageFetchWorker(QtCore.QObject):
                     elif low_url.endswith(".gif"): ext_hint = "gif"
                     elif low_url.endswith(".webp"): ext_hint = "webp"
 
-                    if "gif" in ctype or ext_hint == "gif": 
-                        continue  # skip animated gifs
+                    # Skip only webp (can be flaky), but allow gifs now
                     if "webp" in ctype or ext_hint == "webp":
                         continue  # skip webp (can be flaky in some environments)
 
-                    # Only allow jpg/png; default to jpg
+                    # Allow jpg/png/gif; default to jpg
                     out_ext = ".jpg"
                     if "png" in ctype or ext_hint == "png":
                         out_ext = ".png"
+                    elif "gif" in ctype or ext_hint == "gif":
+                        out_ext = ".gif"
 
-                    # Simple byte-size guard (accept reasonable sizes only)
-                    if not (20_000 <= len(data) <= 6_000_000):
+                    # Simple byte-size guard (accept reasonable sizes, allow larger for GIFs)
+                    if not (20_000 <= len(data) <= 15_000_000):  # Increased limit for animated GIFs
                         continue
 
                     h = hashlib.sha1(url.encode("utf-8")).hexdigest()[:16]
@@ -1636,6 +1669,7 @@ class _ImageSlideshow(QtWidgets.QDialog):
         self.setModal(True); self.setWindowModality(Qt.ApplicationModal)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground, True)
         self.items = []; self.idx = 0
+        self.current_movie = None  # Track current QMovie for GIFs
         v = QtWidgets.QVBoxLayout(self); v.setContentsMargins(24,24,24,24); v.setSpacing(8)
         bg = QtWidgets.QFrame(); bg.setStyleSheet("QFrame{background:rgba(0,0,0,0.94); border-radius:14px;}")
         gl = QtWidgets.QVBoxLayout(bg); gl.setContentsMargins(12,12,12,12); gl.setSpacing(8)
@@ -1665,22 +1699,51 @@ class _ImageSlideshow(QtWidgets.QDialog):
 
     def _show_current(self):
         if not self.items: return
+        
+        # Stop any current animation
+        if self.current_movie:
+            self.current_movie.stop()
+            self.current_movie = None
+            
         it = self.items[self.idx]; local_file = it.get("file") or ""
         if local_file:
             try:
+                # Check if it's a GIF by file extension
+                if local_file.lower().endswith('.gif'):
+                    # Use QMovie for animated GIFs
+                    self.current_movie = QtGui.QMovie(local_file)
+                    if self.current_movie.isValid():
+                        # Scale the movie to fit the label
+                        target = self.label.size() if (self.label.size().width() >= 10 and self.label.size().height() >= 10) else self.size()
+                        self.current_movie.setScaledSize(target)
+                        self.label.setMovie(self.current_movie)
+                        self.current_movie.start()
+                        return
+                    else:
+                        # If QMovie fails, fall back to QPixmap (will show first frame)
+                        self.current_movie = None
+                
+                # Use QPixmap for static images (JPG, PNG) or as GIF fallback
                 pm = QtGui.QPixmap(local_file)
                 if not pm.isNull():
                     target = self.label.size() if (self.label.size().width() >= 10 and self.label.size().height() >= 10) else self.size()
                     self.label.setPixmap(pm.scaled(target, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                     return
-            except Exception: pass
+            except Exception: 
+                pass
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        pm = self.label.pixmap()
-        if pm:
+        if self.current_movie and self.current_movie.isValid():
+            # Rescale animated GIF
             target = self.label.size()
-            self.label.setPixmap(pm.scaled(target, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.current_movie.setScaledSize(target)
+        else:
+            # Rescale static image
+            pm = self.label.pixmap()
+            if pm:
+                target = self.label.size()
+                self.label.setPixmap(pm.scaled(target, Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
     def prev(self):
         if not self.items: return
@@ -1691,6 +1754,10 @@ class _ImageSlideshow(QtWidgets.QDialog):
         self.idx = (self.idx + 1) % len(self.items); self._show_current()
 
     def closeEvent(self, e: QtGui.QCloseEvent):
+        # Stop any running animation
+        if self.current_movie:
+            self.current_movie.stop()
+            self.current_movie = None
         super().closeEvent(e)
         try:
             p = self.parent()
