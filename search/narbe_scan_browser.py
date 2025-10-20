@@ -437,6 +437,12 @@ class Narbe(QtWidgets.QMainWindow):
         self.row_idx = 0
         self.key_idx = 0
 
+        # Search history functionality
+        self.search_history_mode = False  # Toggle between keyboard and history
+        self.search_history = []  # List of search terms
+        self.frequent_searches = {}  # Dict to track search frequency
+        self._load_search_history()
+
         # Overlay state (slideshows)
         self.overlay_open = False
         self._overlay_idx = 0
@@ -515,6 +521,137 @@ class Narbe(QtWidgets.QMainWindow):
         app = QtWidgets.QApplication.instance()
         if app:
             app.installEventFilter(self)
+
+    # ---------- Search History Management ----------
+    def _get_history_file(self):
+        """Get the path to the search history file"""
+        try:
+            here = os.path.dirname(__file__)
+            return os.path.join(here, "search_history.json")
+        except Exception:
+            return "search_history.json"
+
+    def _load_search_history(self):
+        """Load search history from file"""
+        try:
+            history_file = self._get_history_file()
+            if os.path.exists(history_file):
+                with open(history_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.search_history = data.get('history', [])
+                    self.frequent_searches = data.get('frequency', {})
+        except Exception:
+            self.search_history = []
+            self.frequent_searches = {}
+
+    def _save_search_history(self):
+        """Save search history to file"""
+        try:
+            history_file = self._get_history_file()
+            data = {
+                'history': self.search_history[-50:],  # Keep last 50 searches
+                'frequency': self.frequent_searches
+            }
+            with open(history_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
+    def _add_to_history(self, query: str):
+        """Add a search query to history"""
+        query = query.strip()
+        if not query:
+            return
+        
+        # Remove if already exists to move to front
+        if query in self.search_history:
+            self.search_history.remove(query)
+        
+        # Add to front of history
+        self.search_history.insert(0, query)
+        
+        # Update frequency
+        self.frequent_searches[query] = self.frequent_searches.get(query, 0) + 1
+        
+        # Keep only last 50 unique searches
+        self.search_history = self.search_history[:50]
+        
+        # Save to file
+        self._save_search_history()
+
+    def _get_frequent_searches(self):
+        """Get most frequent searches for top row"""
+        # Sort by frequency, then by recency
+        frequent = sorted(self.frequent_searches.items(), 
+                         key=lambda x: (x[1], -self.search_history.index(x[0]) if x[0] in self.search_history else -999), 
+                         reverse=True)
+        return [item[0] for item in frequent[:6]]  # Top 6 for first row
+
+    def _toggle_search_history_mode(self):
+        """Toggle between keyboard and search history mode"""
+        self.search_history_mode = not self.search_history_mode
+        self._update_rows_for_history_mode()
+        self._highlight_rows()
+        
+        if self.search_history_mode:
+            speak("search history mode")
+        else:
+            speak("keyboard mode")
+
+    def _update_rows_for_history_mode(self):
+        """Update the button text and row content based on history mode"""
+        # Update the toggle button text
+        if self.search_history_mode:
+            self.btn_history.setText("KEYBOARD")
+        else:
+            self.btn_history.setText("SEARCH HISTORY")
+        
+        if self.search_history_mode:
+            # Populate rows with search history
+            frequent = self._get_frequent_searches()
+            remaining_history = [h for h in self.search_history if h not in frequent]
+            
+            # First row: frequent searches (up to 6)
+            for i, btn in enumerate(self.row_buttons[0]):
+                if i < len(frequent):
+                    btn.setText(frequent[i][:18].upper())  # Increased from 12 to 18 characters
+                    btn.setProperty("history_term", frequent[i])
+                    # Apply smaller text styling immediately
+                    btn.style().unpolish(btn); btn.style().polish(btn); btn.update()
+                else:
+                    btn.setText("")
+                    btn.setProperty("history_term", "")
+                    btn.style().unpolish(btn); btn.style().polish(btn); btn.update()
+            
+            # Remaining rows: other history items
+            remaining_idx = 0
+            for row_idx in range(1, len(self.row_buttons)):
+                for btn_idx, btn in enumerate(self.row_buttons[row_idx]):
+                    if remaining_idx < len(remaining_history):
+                        term = remaining_history[remaining_idx]
+                        btn.setText(term[:18].upper())  # Increased from 12 to 18 characters
+                        btn.setProperty("history_term", term)
+                        # Apply smaller text styling immediately
+                        btn.style().unpolish(btn); btn.style().polish(btn); btn.update()
+                        remaining_idx += 1
+                    else:
+                        btn.setText("")
+                        btn.setProperty("history_term", "")
+                        btn.style().unpolish(btn); btn.style().polish(btn); btn.update()
+        else:
+            # Restore original keyboard layout
+            original_chars = [
+                "ABCDEF", "GHIJKL", "MNOPQR", 
+                "STUVWX", "YZ0123", "456789"
+            ]
+            for row_idx, chars in enumerate(original_chars):
+                for btn_idx, char in enumerate(chars):
+                    if btn_idx < len(self.row_buttons[row_idx]):
+                        self.row_buttons[row_idx][btn_idx].setText(char)
+                        self.row_buttons[row_idx][btn_idx].setProperty("history_term", "")
+                        # Remove history styling
+                        btn = self.row_buttons[row_idx][btn_idx]
+                        btn.style().unpolish(btn); btn.style().polish(btn); btn.update()
 
     # ---------- Hidden QWebEngineView
     def _init_bg_browser(self):
@@ -624,15 +761,19 @@ QLineEdit{
         twv.addWidget(self.text)
         pv.addWidget(text_wrap)
 
-        # Modes row
+        # Modes row (now with 4 buttons including history controls)
         modes_wrap = QtWidgets.QFrame()
         # ADD: ensure background/border from stylesheet are painted so highlight is visible
         modes_wrap.setAttribute(Qt.WA_StyledBackground, True)
         modes_wrap.setStyleSheet("QFrame{border-radius:12px;}")
-        mv = QtWidgets.QGridLayout(modes_wrap); mv.setContentsMargins(6,6,6,6); mv.setHorizontalSpacing(12)
+        mv = QtWidgets.QGridLayout(modes_wrap); mv.setContentsMargins(6,6,6,6); mv.setHorizontalSpacing(8); mv.setVerticalSpacing(8)
         self.btn_vid = self._btn("VIDEO SEARCH", action="search_video", primary=True)
         self.btn_img = self._btn("IMAGE SEARCH", action="search_images", primary=True)
+        self.btn_history = self._btn("SEARCH HISTORY", action="toggle_history")
+        self.btn_clear_history = self._btn("CLEAR HISTORY", action="clear_history", warn=True)
+        # Arrange in 2x2 grid
         mv.addWidget(self.btn_vid, 0, 0); mv.addWidget(self.btn_img, 0, 1)
+        mv.addWidget(self.btn_history, 1, 0); mv.addWidget(self.btn_clear_history, 1, 1)
         pv.addWidget(modes_wrap)
 
         # Controls
@@ -677,10 +818,10 @@ QLineEdit{
         for b in self.pred_btns: pl.addWidget(b)
         v.addWidget(pred_wrap)
 
-        # Register scan rows
+        # Register scan rows (updated for new modes row layout)
         self.rows: List[RowDef] = []
         self.rows.append(RowDef(text_wrap, [self.text], "row_text", "text"))
-        self.rows.append(RowDef(modes_wrap, [self.btn_vid,self.btn_img], "row_modes", "search"))
+        self.rows.append(RowDef(modes_wrap, [self.btn_vid,self.btn_img,self.btn_history,self.btn_clear_history], "row_modes", "search"))
         self.rows.append(RowDef(controls_wrap, [self.btn_space,self.btn_dl,self.btn_dw,self.btn_cl,self.btn_ex], "row_controls", "controls"))
         ids = ["row1","row2","row3","row4","row5","row6"]
         for idx,(fr,label) in enumerate(self.row_frames):
@@ -947,7 +1088,7 @@ QLineEdit{
         try:
             words = [b.text().strip() for b in getattr(self, "pred_btns", []) if (b.text() or "").strip()]
             delay = 200
-            step = 900
+            step = 1000  # Increased from 900 to 1000ms to prevent TTS queue coalescing
             for i, w in enumerate(words):
                 QtCore.QTimer.singleShot(delay + i * step, lambda ww=w: speak(ww))
         except Exception:
@@ -968,6 +1109,19 @@ QLineEdit{
         action = btn.property("action")
         ch = btn.property("char")
         is_pred = bool(btn.property("pred"))
+        history_term = btn.property("history_term")
+
+        # Handle history term selection
+        if history_term and self.search_history_mode:
+            # Add the full history term to text box
+            current_text = self.text.text().strip()
+            if current_text:
+                self.text.setText(current_text + " " + history_term + " ")
+            else:
+                self.text.setText(history_term + " ")
+            speak(history_term)
+            self._schedule_predictions()
+            return
 
         if ch:
             self.text.setText((self.text.text() + ch).upper())
@@ -1028,9 +1182,23 @@ QLineEdit{
             QtCore.QTimer.singleShot(0, QtWidgets.QApplication.quit)
             return
 
+        if action == "toggle_history":
+            self._toggle_search_history_mode()
+            return
+
+        if action == "clear_history":
+            speak("clear search history")
+            self.search_history = []
+            self.frequent_searches = {}
+            self._save_search_history()
+            if self.search_history_mode:
+                self._update_rows_for_history_mode()
+            return
+
         if action == "search_images":
             q = (self.text.text() or "").strip()
             if not q: return
+            self._add_to_history(q)  # Add to search history
             speak("search images")
             self._show_loading("images")
             self._start_images(q)
@@ -1039,6 +1207,7 @@ QLineEdit{
         if action == "search_video":
             q = (self.text.text() or "").strip()
             if not q: return
+            self._add_to_history(q)  # Add to search history
             speak("search video")
             self._show_loading("videos")
             self._start_videos(q)
@@ -1431,15 +1600,43 @@ QLineEdit{
         if rd.id == "row_text":
             return
         if rd.id in ("row1","row2","row3","row4","row5","row6"):
-            row_names = {
-                "row1": "a b c d e f",
-                "row2": "g h i j k l",
-                "row3": "m n o p q r",
-                "row4": "s t u v w x",
-                "row5": "y z zero one two three",
-                "row6": "four five six seven eight nine",
-            }
-            speak(row_names.get(rd.id, rd.label)); return
+            if self.search_history_mode:
+                # In history mode, speak the actual search terms in the buttons
+                if rd.id == "row1":
+                    # Speak "frequent searches" first, then the terms
+                    terms = []
+                    for btn in self.row_buttons[0]:
+                        term = btn.property("history_term")
+                        if term:
+                            terms.append(term)
+                    if terms:
+                        speak("frequent searches: " + ", ".join(terms))
+                    else:
+                        speak("frequent searches empty")
+                else:
+                    # For other rows, just speak the search terms
+                    row_index = int(rd.id.replace("row", "")) - 1  # Convert row1->0, row2->1, etc.
+                    terms = []
+                    for btn in self.row_buttons[row_index]:
+                        term = btn.property("history_term")
+                        if term:
+                            terms.append(term)
+                    if terms:
+                        speak(", ".join(terms))
+                    else:
+                        speak("empty")
+            else:
+                # Normal keyboard mode
+                row_names = {
+                    "row1": "a b c d e f",
+                    "row2": "g h i j k l",
+                    "row3": "m n o p q r",
+                    "row4": "s t u v w x",
+                    "row5": "y z zero one two three",
+                    "row6": "four five six seven eight nine",
+                }
+                speak(row_names.get(rd.id, rd.label))
+            return
         if rd.id == "row_modes": speak("search")
         elif rd.id == "row_controls": speak("controls")
         elif rd.id == "predRow": speak("predictive text")
@@ -1863,7 +2060,7 @@ class _VideoSlideshow(QtWidgets.QDialog):
 
     def prev(self):
         if not self.items: return
-        self.idx = (self.idx - 1 + len(self.items)) % len(self.items)
+        self.idx = (self.idx - 1) % len(self.items)
         self.exec_js("narbePlayerApi && narbePlayerApi.prev();")
 
     def next(self):
@@ -1922,6 +2119,10 @@ def main():
       border:1px solid rgba(124,203,255,0.35);
       background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #15354d, stop:1 #0f2a41);
       color:#e9f5ff; font-size:16px; font-weight:600; border-radius:12px; padding:10px;
+    }}
+    /* Smaller text for search history buttons */
+    QPushButton[scanKey="true"][history_term] {{
+      font-size:12px; padding:6px 4px; font-weight:500;
     }}
     /* Button variants */
     QPushButton[scanKey="true"][variant="primary"] {{
