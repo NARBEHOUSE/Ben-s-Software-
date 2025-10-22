@@ -429,98 +429,106 @@ class Narbe(QtWidgets.QMainWindow):
         self.setStyleSheet("background:#0b0f14; color:#e9eef5;")
         self.setFocusPolicy(Qt.StrongFocus)
 
-        # Fullscreen now, and keep it
-        self.showFullScreen()
+        # Add exception handling for initialization
+        try:
+            # Fullscreen now, and keep it
+            self.showFullScreen()
 
-        # Scan state
-        self.mode = "ROWS"      # ROWS | KEYS
-        self.row_idx = 0
-        self.key_idx = 0
+            # Scan state
+            self.mode = "ROWS"      # ROWS | KEYS
+            self.row_idx = 0
+            self.key_idx = 0
 
-        # Search history functionality
-        self.search_history_mode = False  # Toggle between keyboard and history
-        self.search_history = []  # List of search terms
-        self.frequent_searches = {}  # Dict to track search frequency
-        self._load_search_history()
+            # Search history functionality
+            self.search_history_mode = False  # Toggle between keyboard and history
+            self.search_history = []  # List of search terms
+            self.frequent_searches = {}  # Dict to track search frequency
+            self._load_search_history()
 
-        # Overlay state (slideshows)
-        self.overlay_open = False
-        self._overlay_idx = 0
-        self.image_show = None
-        self.video_show = None
+            # Overlay state (slideshows)
+            self.overlay_open = False
+            self._overlay_idx = 0
+            self.image_show = None
+            self.video_show = None
 
-        # ADD: one-shot suppression for row label TTS (used when jumping to predictive row)
-        self._suppress_row_label_once = False
+            # ADD: one-shot suppression for row label TTS (used when jumping to predictive row)
+            self._suppress_row_label_once = False
 
-        # Loading overlay
-        self._loading_overlay = None
-        self._loading_timer = None
-        self._loading_base = "Loading"
-        self._loading_dots = 0
+            # Loading overlay
+            self._loading_overlay = None
+            self._loading_timer = None
+            self._loading_base = "Loading"
+            self._loading_dots = 0
 
-        # Timers for scanning
-        self.SHORT_MIN = 250
-        self.SHORT_MAX = 3000
-        self.SCAN_BACK_MS = 2500  # was 1500; scan backwards every 2s while holding space
-        self.space_down = False
-        self.space_at = 0.0
-        self.space_scanned = False
-        self.space_timer = QTimer(self); self.space_timer.setInterval(self.SCAN_BACK_MS)
-        self.space_timer.timeout.connect(self._space_prev)
-        self.enter_down = False
-        self.enter_at = 0.0
-        # ADD: Enter long-hold (3s) handling
-        self.ENTER_HOLD_MS = 3000
-        self.enter_long_fired = False
-        self.enter_timer = QTimer(self)
-        self.enter_timer.setSingleShot(True)
-        self.enter_timer.setInterval(self.ENTER_HOLD_MS)
-        self.enter_timer.timeout.connect(self._on_enter_hold)
-        # ADD: 0.5s cooldown between actionable releases
-        self.INPUT_COOLDOWN_MS = 500
-        self._cooldown_until_ms = 0
+            # Timers for scanning
+            self.SHORT_MIN = 250
+            self.SHORT_MAX = 3000
+            self.SCAN_BACK_MS = 2500  # was 1500; scan backwards every 2s while holding space
+            self.space_down = False
+            self.space_at = 0.0
+            self.space_scanned = False
+            self.space_timer = QTimer(self); self.space_timer.setInterval(self.SCAN_BACK_MS)
+            self.space_timer.timeout.connect(self._space_prev)
+            self.enter_down = False
+            self.enter_at = 0.0
+            # ADD: Enter long-hold (3s) handling
+            self.ENTER_HOLD_MS = 3000
+            self.enter_long_fired = False
+            self.enter_timer = QTimer(self)
+            self.enter_timer.setSingleShot(True)
+            self.enter_timer.setInterval(self.ENTER_HOLD_MS)
+            self.enter_timer.timeout.connect(self._on_enter_hold)
+            # ADD: 0.5s cooldown between actionable releases
+            self.INPUT_COOLDOWN_MS = 500
+            self._cooldown_until_ms = 0
 
-        # Predictions
-        self._pred_current = [""]*6
+            # Predictions
+            self._pred_current = [""]*6
 
-        # Hidden browser (results loader)
-        self._init_bg_browser()
-        self.bg_task = None           # "images" | "videos" | None
-        self.bg_query = ""
-        self.bg_provider = "google"   # images: google -> ddg -> bing -> brave
-        self.bg_deadline_ms = 0
-        self.bg_timer = QTimer(self); self.bg_timer.setInterval(550)
-        self.bg_timer.timeout.connect(self._bg_tick)
+            # Hidden browser (results loader)
+            self._init_bg_browser()
+            self.bg_task = None           # "images" | "videos" | None
+            self.bg_query = ""
+            self.bg_provider = "google"   # images: google -> ddg -> bing -> brave
+            self.bg_deadline_ms = 0
+            self.bg_timer = QTimer(self); self.bg_timer.setInterval(550)
+            self.bg_timer.timeout.connect(self._bg_tick)
 
-        # Image crawl state
-        self.IMG_MAX = 50
-        self._img_queue = []      # list[str] of URLs to visit
-        self._img_accum = []      # list[dict] accumulating {img,title,ref}
-        self._img_seen = set()    # de-dupe by final image URL
+            # Image crawl state
+            self.IMG_MAX = 50
+            self._img_queue = []      # list[str] of URLs to visit
+            self._img_accum = []      # list[dict] accumulating {img,title,ref}
+            self._img_seen = set()    # de-dupe by final image URL
 
-        # Build UI and focus/highlight
-        self._make_ui()
-        self._highlight_rows()
+            # Build UI and focus/highlight
+            self._make_ui()
+            self._highlight_rows()
 
-        # --- prediction thread + debounce ---
-        self.pred_req_id = 0
-        self.pred_timer = QTimer(self); self.pred_timer.setSingleShot(True); self.pred_timer.setInterval(120)
-        self.pred_timer.timeout.connect(self._refresh_predictions_async)
-        self.pred_thread = QtCore.QThread(self)
-        self.pred_worker = PredictWorker()
-        self.pred_worker.moveToThread(self.pred_thread)
-        self.pred_worker.request.connect(self.pred_worker._on_request)
-        self.pred_worker.ready.connect(self._on_predictions_ready)
-        self.pred_thread.start()
+            # --- prediction thread + debounce ---
+            self.pred_req_id = 0
+            self.pred_timer = QTimer(self); self.pred_timer.setSingleShot(True); self.pred_timer.setInterval(120)
+            self.pred_timer.timeout.connect(self._refresh_predictions_async)
+            self.pred_thread = QtCore.QThread(self)
+            self.pred_worker = PredictWorker()
+            self.pred_worker.moveToThread(self.pred_thread)
+            self.pred_worker.request.connect(self.pred_worker._on_request)
+            self.pred_worker.ready.connect(self._on_predictions_ready)
+            self.pred_thread.start()
 
-        # Keep focus & dismiss Start/Widgets on Windows
-        if sys.platform.startswith("win"):
-            self._install_force_focus()
+            # Keep focus & dismiss Start/Widgets on Windows
+            if sys.platform.startswith("win"):
+                self._install_force_focus()
 
-        # Event filter to catch space/enter globally
-        app = QtWidgets.QApplication.instance()
-        if app:
-            app.installEventFilter(self)
+            # Event filter to catch space/enter globally
+            app = QtWidgets.QApplication.instance()
+            if app:
+                app.installEventFilter(self)
+
+        except Exception as e:
+            print(f"Error during initialization: {e}")
+            import traceback
+            traceback.print_exc()
+            # Don't quit, try to continue with basic functionality
 
     # ---------- Search History Management ----------
     def _get_history_file(self):
@@ -604,7 +612,7 @@ class Narbe(QtWidgets.QMainWindow):
         if self.search_history_mode:
             self.btn_history.setText("KEYBOARD")
         else:
-            self.btn_history.setText("SEARCH HISTORY")
+            self.btn_history.setText("HISTORY")
         
         if self.search_history_mode:
             # Populate rows with search history
@@ -761,19 +769,18 @@ QLineEdit{
         twv.addWidget(self.text)
         pv.addWidget(text_wrap)
 
-        # Modes row (now with 4 buttons including history controls)
+        # Modes row (single row with 4 buttons)
         modes_wrap = QtWidgets.QFrame()
         # ADD: ensure background/border from stylesheet are painted so highlight is visible
         modes_wrap.setAttribute(Qt.WA_StyledBackground, True)
         modes_wrap.setStyleSheet("QFrame{border-radius:12px;}")
-        mv = QtWidgets.QGridLayout(modes_wrap); mv.setContentsMargins(6,6,6,6); mv.setHorizontalSpacing(8); mv.setVerticalSpacing(8)
-        self.btn_vid = self._btn("VIDEO SEARCH", action="search_video", primary=True)
-        self.btn_img = self._btn("IMAGE SEARCH", action="search_images", primary=True)
-        self.btn_history = self._btn("SEARCH HISTORY", action="toggle_history")
+        mv = QtWidgets.QHBoxLayout(modes_wrap); mv.setContentsMargins(6,6,6,6); mv.setSpacing(8)
+        self.btn_vid = self._btn("VIDEO", action="search_video", primary=True)
+        self.btn_img = self._btn("IMAGE", action="search_images", primary=True)
+        self.btn_history = self._btn("HISTORY", action="toggle_history")
         self.btn_clear_history = self._btn("CLEAR HISTORY", action="clear_history", warn=True)
-        # Arrange in 2x2 grid
-        mv.addWidget(self.btn_vid, 0, 0); mv.addWidget(self.btn_img, 0, 1)
-        mv.addWidget(self.btn_history, 1, 0); mv.addWidget(self.btn_clear_history, 1, 1)
+        # Single row layout
+        mv.addWidget(self.btn_vid); mv.addWidget(self.btn_img); mv.addWidget(self.btn_history); mv.addWidget(self.btn_clear_history)
         pv.addWidget(modes_wrap)
 
         # Controls
@@ -1113,14 +1120,11 @@ QLineEdit{
 
         # Handle history term selection
         if history_term and self.search_history_mode:
-            # Add the full history term to text box
-            current_text = self.text.text().strip()
-            if current_text:
-                self.text.setText(current_text + " " + history_term + " ")
-            else:
-                self.text.setText(history_term + " ")
+            # Replace the text box with the selected history term
+            self.text.setText(history_term)
             speak(history_term)
             self._schedule_predictions()
+            self._toggle_search_history_mode()  # Return to keyboard mode
             return
 
         if ch:
@@ -1178,7 +1182,6 @@ QLineEdit{
             self._schedule_predictions(); return
         if action == "exit":
             speak("exit")
-            self._launch_comm_v10()  # launch Comm-v10.py in root
             QtCore.QTimer.singleShot(0, QtWidgets.QApplication.quit)
             return
 
@@ -1239,28 +1242,6 @@ QLineEdit{
         for i, b in enumerate(self.pred_btns):
             b.setText(arr[i].upper() if i < len(arr) else "")
         self._pred_current = arr
-
-    def _launch_comm_v10(self):
-        # Start Comm-v10.py in the project root folder
-        try:
-            root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-            script = os.path.join(root, "Comm-v10.py")
-            if os.path.isfile(script):
-                args = [sys.executable or "python", script]
-                creationflags = 0
-                if sys.platform.startswith("win"):
-                    # CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS (safe fallback)
-                    creationflags = 0x00000008 | 0x00000008
-                try:
-                    subprocess.Popen(args, cwd=root, creationflags=creationflags)
-                except Exception:
-                    subprocess.Popen(args, cwd=root)
-        except Exception:
-            try:
-                if sys.platform.startswith("win"):
-                    os.startfile(os.path.join(root, "Comm-v10.py"))
-            except Exception:
-                pass
 
     # ---------- Loading overlay
     def _show_loading(self, what="results"):
