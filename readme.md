@@ -31,7 +31,6 @@ The project is shared openly to inspire others to build similar accessibility to
 
 - Custom-built predictive text engine (developed by hand, not AI-generated)  
 - Optimized for **scan-and-select navigation** with two switches  
-- Supports **quick phrases** (`data/communication.xlsx`)  
 - Text-to-Speech (TTS) for all typed content  
 
 ### Main Communication Hub (`comm-v10.py`)
@@ -169,6 +168,7 @@ This is more than just one program.
 It’s an **open-source example** of how AI + caregiving can create **accessible, personalized tools** for people with severe disabilities.
 
 We hope it inspires others to build and share similar projects.
+
 
 
 
