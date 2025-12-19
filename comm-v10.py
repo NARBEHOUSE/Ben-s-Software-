@@ -19,6 +19,8 @@ import logging
 import requests
 import win32api
 import sys  # ensure available for control bar launcher
+import psutil
+from psutil import process_iter
 
 # ADD: control bar launcher
 CONTROL_BAR_PATH = os.path.join(os.path.dirname(__file__), "utils", "control_bar.py")
@@ -36,10 +38,29 @@ def launch_control_bar(mode="basic", show_title=None):
 # ADD: global stop event for all background loops
 STOP_EVENT = threading.Event()
 
+def is_chrome_running():
+    for p in process_iter(['name']):
+        if p.info['name'] and 'chrome' in p.info['name'].lower():
+            return True
+    return False
+
+def is_narbe_search_running():
+    """Check if narbe_scan_browser.py is currently running"""
+    for p in process_iter(['name', 'cmdline']):
+        try:
+            if p.info['name'] and 'python' in p.info['name'].lower():
+                cmdline = p.info.get('cmdline', [])
+                if cmdline and any('narbe_scan_browser.py' in str(arg) for arg in cmdline):
+                    return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    return False
+
 def monitor_app_focus(app_title="Accessible Menu"):
     while not STOP_EVENT.is_set():
         try:
-            if not is_chrome_running():
+            # Don't steal focus if Chrome OR narbe_scan_browser.py is running
+            if not is_chrome_running() and not is_narbe_search_running():
                 # Dismiss Start/taskbar focus if it has it
                 try:
                     send_esc_key()
@@ -96,11 +117,12 @@ def monitor_and_minimize(app):
     while not STOP_EVENT.is_set():
         try:
             active_window, _ = get_active_window_name()
-            if is_chrome_running():
+            # Only minimize if Chrome is running AND narbe_scan_browser.py is NOT running
+            if is_chrome_running() and not is_narbe_search_running():
                 if app.state() == "normal" or "Accessible Menu" in active_window:
                     app.iconify()
             else:
-                # CHANGED: if Chrome is NOT running, never allow minimized state
+                # CHANGED: if Chrome is NOT running OR narbe_scan_browser.py IS running, never allow minimized state
                 if app.state() == "iconic":
                     app.deiconify()
                     try:
@@ -111,14 +133,6 @@ def monitor_and_minimize(app):
             print(f"monitor_and_minimize error: {e}")
         time.sleep(1)
 
-from psutil import process_iter
-
-def is_chrome_running():
-    for p in process_iter(['name']):
-        if p.info['name'] and 'chrome' in p.info['name'].lower():
-            return True
-    return False
-        
 # Function to minimize the on-screen keyboard
 def minimize_on_screen_keyboard():
     """Minimizes the on-screen keyboard if it's active."""
@@ -791,7 +805,7 @@ class App(tk.Tk):
             self.current_button_index = 0
             self.selection_enabled = True
             if self.buttons:
-                self.highlight_button(0)
+                self.highlight_button(self.parent.current_button_index)
             # Keep focus so scan/select keys work
             self.focus_set()
         else:
@@ -812,7 +826,7 @@ class App(tk.Tk):
         if isinstance(self.current_frame, (
             MainMenuPage, EntertainmentMenuPage, SettingsMenuPage,
             LibraryMenu, GamesPage, CommunicationPageMenu,
-            SeasonPickerMenu, EpisodeListMenu
+            SeasonPickerMenu, EpisodeListMenu, PhrasesMenu
         )):
             speak(self.buttons[self.current_button_index]["text"])
 
@@ -832,7 +846,7 @@ class App(tk.Tk):
         if isinstance(self.current_frame, (
             MainMenuPage, EntertainmentMenuPage,  SettingsMenuPage,
             LibraryMenu, GamesPage, CommunicationPageMenu,
-            SeasonPickerMenu, EpisodeListMenu
+            SeasonPickerMenu, EpisodeListMenu, PhrasesMenu
           
         )):
             speak(self.buttons[self.current_button_index]["text"])
@@ -1421,35 +1435,16 @@ class MainMenuPage(MenuFrame):
 class CommunicationPageMenu(MenuFrame):
     def __init__(self, parent):
         super().__init__(parent, "Communication")
-        self.phrases_by_category = load_communication_phrases()
-        self.categories = sorted(self.phrases_by_category.keys())
-        self.page = 0
-        # CHANGED: back + keyboard + messenger + up to 13 categories = 16 buttons max
-        self.page_size = 13
-        self.load_buttons()
-
-    def load_buttons(self):
-        start = self.page * self.page_size
-        end = start + self.page_size
-        current_cats = self.categories[start:end]
-
-        # CHANGED: add Messenger after Keyboard
+        
+        # Simple 4-button layout
         buttons = [
-            ("Back", lambda: self.parent.show_frame(MainMenuPage), "Back"),
+            ("Back", lambda: parent.show_frame(MainMenuPage), "Back"),
             ("Keyboard", self.open_keyboard_app, "Keyboard"),
             ("Messenger", self.open_messenger_app, "Messenger"),
+            ("Phrases", lambda: parent.show_frame(PhrasesMenu), "Phrases"),
         ]
-        for cat in current_cats:
-            buttons.append((cat, lambda c=cat: self.parent.show_frame(lambda p: CommunicationCategoryMenu(p, c, self.phrases_by_category[c])), cat))
-
-        if end < len(self.categories):
-            buttons.append(("Next", self.next_page, "Next Page"))
-
-        self.create_button_grid(buttons, columns=4)
-
-    def next_page(self):
-        self.page += 1
-        self.load_buttons()
+        
+        self.create_button_grid(buttons, columns=2)
 
     def open_keyboard_app(self):
         import subprocess, os, sys, time, threading, requests
@@ -1546,8 +1541,6 @@ class CommunicationPageMenu(MenuFrame):
         except Exception:
             pass
 
-
-    # ADD: open Messenger (Discord) app
     def open_messenger_app(self):
         try:
             script_path = os.path.join(os.path.dirname(__file__), "messenger", "ben_discord_app.py")
@@ -1560,16 +1553,46 @@ class CommunicationPageMenu(MenuFrame):
         except Exception as e:
             print(f"Failed to open messenger: {e}")
 
+# NEW: Phrases menu that handles the spreadsheet data
+class PhrasesMenu(MenuFrame):
+    def __init__(self, parent):
+        super().__init__(parent, "Phrases")
+        self.phrases_by_category = load_communication_phrases()
+        self.categories = sorted(self.phrases_by_category.keys())
+        self.page = 0
+        self.page_size = 14  # Back + up to 14 categories per page
+        self.load_buttons()
+
+    def load_buttons(self):
+        start = self.page * self.page_size
+        end = start + self.page_size
+        current_cats = self.categories[start:end]
+
+        buttons = [
+            ("Back", lambda: self.parent.show_frame(CommunicationPageMenu), "Back"),
+        ]
+        
+        for cat in current_cats:
+            buttons.append((cat, lambda c=cat: self.parent.show_frame(lambda p: CommunicationCategoryMenu(p, c, self.phrases_by_category[c])), cat))
+
+        if end < len(self.categories):
+            buttons.append(("Next", self.next_page, "Next Page"))
+
+        self.create_button_grid(buttons, columns=4)
+
+    def next_page(self):
+        self.page += 1
+        self.load_buttons()
+
 class CommunicationCategoryMenu(MenuFrame):
     def __init__(self, parent, category_name, phrase_list):
         super().__init__(parent, category_name)
         buttons = [
-            ("Back", lambda: parent.show_frame(CommunicationPageMenu), "Back")
+            ("Back", lambda: parent.show_frame(PhrasesMenu), "Back")
         ]
         for label, speak_text in phrase_list:
             buttons.append((label, lambda t=speak_text: speak(t), speak_text))
         self.create_button_grid(buttons, columns=3)
-
 
 import subprocess
 import pyautogui
@@ -1696,7 +1719,7 @@ class EntertainmentMenuPage(MenuFrame):
             ("Audio", lambda: self.parent.show_frame(lambda p: LibraryMenu(p, self._get_audio_data(), "genre", parent_key="audio")), "Audio"),
             ("Live Streams", lambda: self.parent.show_frame(lambda p: LibraryMenu(p, self.parent.organized_links.get("live", {}), "genre", parent_key="live")), "Live Streams"),
             ("Games", lambda: parent.show_frame(GamesPage), "Games"),
-            # ADD: Web Search button
+            ("Journal", self.open_journal_app, "Journal"),
             ("Web Search", self.open_web_search, "Web Search"),
         ]
 
@@ -1746,17 +1769,136 @@ class EntertainmentMenuPage(MenuFrame):
                 speak("Web search app not found")
                 return
 
-            subprocess.Popen([sys.executable, script_path],
-                             cwd=os.path.dirname(script_path),
-                             shell=False)
+            # Start the web search process
+            web_search_proc = subprocess.Popen([sys.executable, script_path],
+                                             cwd=os.path.dirname(script_path),
+                                             shell=False)
             print(f"[WebSearch] Launched: {script_path}")
+            
+            # Minimize this app instead of closing it
+            self.parent.iconify()
+            print("[WebSearch] Minimized comm-v10 app")
+            
+            # Start monitoring thread to restore focus when web search closes
+            def monitor_web_search():
+                try:
+                    # Wait for the web search process to finish
+                    web_search_proc.wait()
+                    print("[WebSearch] Web search process has ended")
+                    
+                    # Small delay to ensure process cleanup
+                    time.sleep(0.5)
+                    
+                    # Restore and focus the main app
+                    try:
+                        self.parent.deiconify()
+                        self.parent._force_foreground_once()
+                        print("[WebSearch] Restored comm-v10 app focus")
+                    except Exception as e:
+                        print(f"[WebSearch] Error restoring focus: {e}")
+                        
+                except Exception as e:
+                    print(f"[WebSearch] Error in monitor thread: {e}")
+            
+            # Start the monitoring thread
+            threading.Thread(target=monitor_web_search, daemon=True).start()
+            
         except Exception as e:
             print(f"[WebSearch] Failed to launch: {e}")
             speak("Unable to open web search")
             return
 
-        # Close this app after launching the web search
-        graceful_exit(self.parent)
+    def open_journal_app(self):
+        """Open the Journal web app using the same pattern as the keyboard app."""
+        import subprocess, os, sys, time, threading, requests
+        # point to the server script in the journal folder
+        journal_dir = os.path.join(os.path.dirname(__file__), "journal")
+        server_py = os.path.join(journal_dir, "server.py")
+        url = "http://127.0.0.1:5001"  # Use different port than keyboard
+        chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        server_proc = None
+
+        # 1) start server only if not already up
+        def server_is_up():
+            try:
+                r = requests.get(url, timeout=0.5)
+                return r.status_code < 500
+            except Exception:
+                return False
+
+        try:
+            if not server_is_up():
+                if not os.path.exists(server_py):
+                    print(f"[Journal] server.py not found: {server_py}")
+                    speak("Journal server not found")
+                    return
+                server_proc = subprocess.Popen([sys.executable, server_py], cwd=journal_dir, shell=False)
+                # wait a few seconds for it to come up
+                for _ in range(40):  # ~10s
+                    if server_is_up():
+                        break
+                    time.sleep(0.25)
+                if not server_is_up():
+                    print("[Journal] server did not start")
+                    speak("Could not start journal server")
+                    # kill the one we started if it failed
+                    try:
+                        if server_proc and server_proc.poll() is None:
+                            server_proc.terminate()
+                    except Exception:
+                        pass
+                    return
+        except Exception as e:
+            print(f"[Journal] error starting server: {e}")
+            speak("Could not start journal server")
+            return
+
+        # 2) open Chrome fullscreen to the journal
+        try:
+            if os.path.exists(chrome_exe):
+                subprocess.Popen([chrome_exe, "--start-fullscreen", "--no-first-run",
+                                "--no-default-browser-check", url], shell=False)
+            else:
+                # fallback to PATH
+                subprocess.Popen(["start", "chrome", "--start-fullscreen", url], shell=True)
+        except Exception as e:
+            print(f"[Journal] failed to open Chrome: {e}")
+            speak("Could not open Chrome")
+            return
+
+        # 3) watcher: when Chrome closes, stop only the server we started
+        def watcher(proc_handle):
+            from psutil import process_iter
+            def chrome_running():
+                for p in process_iter(['name']):
+                    n = p.info.get('name') or ''
+                    if 'chrome' in n.lower():
+                        return True
+                return False
+            # wait for Chrome to go away
+            while chrome_running():
+                time.sleep(1.0)
+            # stop the server we started (do not touch if we did not start it)
+            if proc_handle and proc_handle.poll() is None:
+                try:
+                    proc_handle.terminate()
+                    # give it a moment
+                    for _ in range(20):
+                        if proc_handle.poll() is not None:
+                            break
+                        time.sleep(0.1)
+                    if proc_handle.poll() is None:
+                        proc_handle.kill()
+                except Exception as e:
+                    print(f"[Journal] watcher kill error: {e}")
+
+        threading.Thread(target=watcher, args=(server_proc,), daemon=True).start()
+
+        # optionally minimize this app right away
+        try:
+            self.master.iconify()
+        except Exception:
+            pass
 
     def coming_soon(self):
         """Notify that this feature is coming soon."""
@@ -1783,32 +1925,45 @@ class GamesPage(MenuFrame):
 
     # ───────────────────────── helpers ──────────────────────────
     def _discover_games(self):
-        """Return a list of (label, command, speak_text) tuples for each game file (.py, .html)."""
+        """Return a list of (label, command, speak_text) tuples for each game file (.py, .html) or subfolder with index.html."""
         games = []
 
         if not os.path.isdir(self.GAMES_DIR):
             print(f"[GamesPage] Folder not found: {self.GAMES_DIR}")
             return games
 
-        for file in sorted(os.listdir(self.GAMES_DIR)):
-            # Include Python and HTML files; skip dunders and others
-            if file.startswith("__"):
-                continue
-            ext = os.path.splitext(file)[1].lower()
-            if ext not in (".py", ".html", ".htm"):
-                continue
+        for item in sorted(os.listdir(self.GAMES_DIR)):
+            item_path = os.path.join(self.GAMES_DIR, item)
+            
+            # Handle files (.py, .html)
+            if os.path.isfile(item_path):
+                # Include Python and HTML files; skip dunders and others
+                if item.startswith("__"):
+                    continue
+                ext = os.path.splitext(item)[1].lower()
+                if ext not in (".py", ".html", ".htm"):
+                    continue
 
-            script_path = os.path.join(self.GAMES_DIR, file)
-            title = self._filename_to_title(file)
-            cmd = partial(self.open_game, script_path, title)
-            games.append((title, cmd, title))
+                title = self._filename_to_title(item)
+                cmd = partial(self.open_game, item_path, title)
+                games.append((title, cmd, title))
+            
+            # Handle subfolders that contain index.html
+            elif os.path.isdir(item_path):
+                index_path = os.path.join(item_path, "index.html")
+                if os.path.isfile(index_path):
+                    title = self._filename_to_title(item)  # Use folder name as title
+                    cmd = partial(self.open_game, index_path, title)
+                    games.append((title, cmd, title))
 
         return games
 
     @staticmethod
     def _filename_to_title(filename):
-        """Convert "tic_tac_toe.py" → "Tic Tac Toe"."""
+        """Convert "tic_tac_toe.py" or "BENNYSBASEBALL" → "Tic Tac Toe" or "Bennysbaseball"."""
+        # Remove extension if present
         base = os.path.splitext(filename)[0]
+        # Replace underscores with spaces and title case
         return base.replace("_", " ").title()
 
     # ───────────────────────── UI helpers ───────────────────────
@@ -1850,21 +2005,70 @@ class GamesPage(MenuFrame):
                 self.parent.destroy()
             elif ext in (".html", ".htm"):
                 print(f"[GamesPage] Launching HTML game: {title} → {script_path}")
-                from pathlib import Path
-                chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-                file_url = Path(script_path).resolve().as_uri()
-                if os.path.exists(chrome_exe):
-                    subprocess.Popen([chrome_exe, "--start-fullscreen", file_url],
-                                     cwd=os.path.dirname(script_path), shell=False)
+                
+                # Special handling for Bennysbowling (needs local server due to GLTF/CORS)
+                if "BENNYSBOWLING" in script_path.upper():
+                    self._launch_game_with_server(script_path, title)
                 else:
-                    # Fallback to default browser
-                    os.startfile(script_path)
+                    # Regular HTML games can open directly
+                    from pathlib import Path
+                    chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+                    file_url = Path(script_path).resolve().as_uri()
+                    if os.path.exists(chrome_exe):
+                        subprocess.Popen([chrome_exe, "--start-fullscreen", file_url],
+                                         cwd=os.path.dirname(script_path), shell=False)
+                    else:
+                        # Fallback to default browser
+                        os.startfile(script_path)
                 # Do NOT close the app for HTML games; Chrome will trigger auto‑minimize
             else:
                 raise ValueError(f"Unsupported game type: {ext}")
         except Exception as e:
             print(f"[GamesPage] Failed to open {title}: {e}")
             speak("Unable to launch the selected game.")
+    
+    def _launch_game_with_server(self, html_path, title):
+        """Launch an HTML game through a local web server (for games needing CORS support)."""
+        import http.server
+        import socketserver
+        import threading
+        from pathlib import Path
+        
+        game_dir = os.path.dirname(html_path)
+        port = 8888  # Use a dedicated port for games
+        
+        # Start a simple HTTP server in the game directory
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=game_dir, **kwargs)
+            
+            def log_message(self, format, *args):
+                # Suppress server logs
+                pass
+        
+        def start_server():
+            with socketserver.TCPServer(("127.0.0.1", port), Handler) as httpd:
+                print(f"[GamesPage] Serving {title} on http://127.0.0.1:{port}")
+                httpd.serve_forever()
+        
+        # Start server in background thread
+        server_thread = threading.Thread(target=start_server, daemon=True)
+        server_thread.start()
+        
+        # Give server a moment to start
+        time.sleep(0.5)
+        
+        # Open in Chrome
+        chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        game_url = f"http://127.0.0.1:{port}/index.html"
+        
+        if os.path.exists(chrome_exe):
+            subprocess.Popen([chrome_exe, "--start-fullscreen", game_url], shell=False)
+        else:
+            # Fallback
+            subprocess.Popen(["start", "chrome", "--start-fullscreen", game_url], shell=True)
+        
+        print(f"[GamesPage] Launched {title} at {game_url}")
 
 from collections import defaultdict
 import tkinter as tk

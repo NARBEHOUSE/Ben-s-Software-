@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ben's Journal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Main Menu Screen -->
+    <div id="mainMenu" class="screen active">
+      <h1 class="title">Journal</h1>
+      <div class="menu-buttons">
+        <button class="menu-btn" data-action="entries">Entries</button>
+        <button class="menu-btn" data-action="options">Options</button>
+        <button class="menu-btn danger" data-action="exit">Exit</button>
+      </div>
+    </div>
+
+    <!-- Entries Screen -->
+    <div id="entriesScreen" class="screen">
+      <h1 class="title">My Entries</h1>
+      <div class="view-label-container">
+        <span id="currentPeriod" class="period-label">November 30, 2025</span>
+      </div>
+      <div class="entries-actions">
+        <button class="action-btn primary" data-action="question-entry">Question Entry</button>
+        <button class="action-btn primary" data-action="add-entry">Add Entry</button>
+        <button class="action-btn" data-action="change-view">Change Date</button>
+        <button class="action-btn" data-action="back-to-menu">Back</button>
+      </div>
+      <div id="entriesList" class="entries-list">
+        <!-- Entries will be populated here -->
+      </div>
+    </div>
+
+    <!-- Change Date Modal -->
+    <div id="changeViewModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 class="modal-title">Change Date</h2>
+        <div id="datePreview" class="date-preview">Sunday, December 1, 2025</div>
+        <div class="modal-buttons">
+          <button class="modal-btn" data-action="view-prev-day">◀ Previous Day</button>
+          <button class="modal-btn" data-action="view-next-day">Next Day ▶</button>
+          <button class="modal-btn" data-action="view-prev-week">◀ Previous Week</button>
+          <button class="modal-btn" data-action="view-next-week">Next Week ▶</button>
+          <button class="modal-btn" data-action="view-prev-month">◀ Previous Month</button>
+          <button class="modal-btn" data-action="view-next-month">Next Month ▶</button>
+          <button class="modal-btn" data-action="view-today">Today</button>
+          <button class="modal-btn" data-action="close-view-modal">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options Screen -->
+    <div id="optionsScreen" class="screen">
+      <h1 class="title">Options</h1>
+      <div id="optionsGrid" class="options-grid">
+        <button class="option-btn" data-setting="theme">
+          <span class="option-label">Theme</span>
+          <span class="option-value" id="themeValue">Default</span>
+        </button>
+        <button class="option-btn" data-setting="highlight">
+          <span class="option-label">Highlight</span>
+          <span class="option-value" id="highlightValue">Yellow</span>
+        </button>
+        <button class="option-btn" data-setting="scan-speed">
+          <span class="option-label">Scan Speed</span>
+          <span class="option-value" id="scanSpeedValue">Medium</span>
+        </button>
+        <button class="option-btn" data-setting="auto-scan">
+          <span class="option-label">Auto Scan</span>
+          <span class="option-value" id="autoScanValue">Off</span>
+        </button>
+        <button class="option-btn" data-setting="voice">
+          <span class="option-label">Voice</span>
+          <span class="option-value" id="voiceValue">Default</span>
+        </button>
+        <button class="option-btn" data-setting="tts-toggle">
+          <span class="option-label">TTS</span>
+          <span class="option-value" id="ttsToggleValue">On</span>
+        </button>
+      </div>
+      <div class="menu-buttons bottom-buttons">
+        <button class="menu-btn" data-action="back-to-menu">Back</button>
+      </div>
+    </div>
+
+    <!-- Question Modal -->
+    <div id="questionModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="questionText" class="question-text">How was your morning?</h2>
+        <div class="modal-buttons">
+          <button class="modal-btn" data-action="new-question">New Question</button>
+          <button class="modal-btn primary" data-action="add-answer">Add Answer</button>
+          <button class="modal-btn" data-action="close-modal">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keyboard Screen -->
+    <div id="keyboardScreen" class="screen">
+      <div class="keyboard-container">
+        <div class="textbar-container">
+          <div id="textBar" class="textbar" aria-live="polite"></div>
+        </div>
+        <div id="keyboard" class="keyboard"></div>
+        <div id="predictBar" class="predictbar"></div>
+      </div>
+    </div>
+
+    <!-- Entry View Modal -->
+    <div id="entryViewModal" class="modal hidden">
+      <div class="modal-card entry-view">
+        <h2 id="entryViewDate" class="entry-date">November 30, 2025</h2>
+        <p id="entryViewQuestion" class="entry-question">How was your morning?</p>
+        <p id="entryViewAnswer" class="entry-answer">It was great!</p>
+        <div class="modal-buttons">
+          <button class="modal-btn primary" data-action="read-entry">🔊 Read Aloud</button>
+          <button class="modal-btn" data-action="edit-entry">✏️ Edit</button>
+          <button class="modal-btn danger" data-action="delete-entry">🗑️ Delete</button>
+          <button class="modal-btn" data-action="close-entry-view">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 class="question-text">Are you sure you want to delete this entry?</h2>
+        <div class="modal-buttons">
+          <button class="modal-btn" data-action="cancel-delete">Cancel</button>
+          <button class="modal-btn danger" data-action="confirm-delete">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice Manager (same as keyboard) -->
+  <script>
+    window.NarbeVoiceManager = window.NarbeVoiceManager || {
+      currentVoiceIndex: 0,
+      ttsEnabled: true,
+      voices: [],
+      selectedVoiceName: null,
+      
+      wordPronunciationMap: {
+        'IS': 'is', 'IT': 'it', 'IN': 'in', 'IF': 'if', 'OF': 'of',
+        'OR': 'or', 'ON': 'on', 'TO': 'to', 'GO': 'go', 'NO': 'no',
+        'SO': 'so', 'DO': 'do', 'UP': 'up', 'AT': 'at', 'AS': 'as',
+        'AN': 'an', 'AM': 'am', 'BE': 'be', 'BY': 'by', 'MY': 'my',
+        'WE': 'we', 'HE': 'he', 'ME': 'me', 'US': 'us', 'HI': 'hi',
+        'OK': 'okay', 'OH': 'oh', 'AH': 'ah'
+      },
+      
+      processTextForSpeech: function(text) {
+        if (!text || typeof text !== 'string') return text;
+        const words = text.split(/(\s+)/);
+        const processedWords = words.map(word => {
+          const trimmedWord = word.trim().toUpperCase();
+          if (this.wordPronunciationMap[trimmedWord]) {
+            return this.wordPronunciationMap[trimmedWord];
+          }
+          return word;
+        });
+        return processedWords.join('');
+      },
+      
+      init: function() {
+        const allVoices = speechSynthesis.getVoices();
+        this.voices = allVoices.filter(voice => {
+          const isEnglish = voice.lang.startsWith('en-') || voice.lang === 'en';
+          const isMicrosoft = voice.name.toLowerCase().includes('microsoft');
+          return isEnglish || isMicrosoft;
+        });
+        
+        this.voices.sort((a, b) => {
+          const aMicrosoft = a.name.toLowerCase().includes('microsoft');
+          const bMicrosoft = b.name.toLowerCase().includes('microsoft');
+          if (aMicrosoft && !bMicrosoft) return -1;
+          if (!aMicrosoft && bMicrosoft) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        
+        if (this.voices.length === 0) {
+          this.voices = [{ name: 'Default', lang: 'en-US' }];
+        }
+        this.voices = this.voices.slice(0, 5);
+        this.restoreSelectedVoice();
+      },
+      
+      restoreSelectedVoice: function() {
+        try {
+          const saved = localStorage.getItem('preferredVoiceName');
+          if (saved) {
+            const voiceIndex = this.voices.findIndex(v => v.name === saved);
+            if (voiceIndex !== -1) {
+              this.currentVoiceIndex = voiceIndex;
+              this.selectedVoiceName = saved;
+            }
+          }
+        } catch (e) {}
+      },
+      
+      saveSelectedVoice: function() {
+        const currentVoice = this.getCurrentVoice();
+        if (currentVoice) {
+          this.selectedVoiceName = currentVoice.name;
+          try { localStorage.setItem('preferredVoiceName', currentVoice.name); } catch (e) {}
+        }
+      },
+      
+      speak: function(text, options = {}) {
+        if (!this.ttsEnabled) return;
+        try {
+          speechSynthesis.cancel();
+          const processedText = this.processTextForSpeech(text);
+          const utterance = new SpeechSynthesisUtterance(processedText);
+          utterance.rate = options.rate || 1;
+          const currentVoice = this.getCurrentVoice();
+          if (currentVoice && currentVoice.name !== 'Default') {
+            utterance.voice = currentVoice;
+          }
+          speechSynthesis.speak(utterance);
+        } catch (e) {}
+      },
+      
+      cancel: function() {
+        try { speechSynthesis.cancel(); } catch (e) {}
+      },
+      
+      cycleVoice: function() {
+        if (this.voices.length <= 1) return false;
+        this.currentVoiceIndex = (this.currentVoiceIndex + 1) % this.voices.length;
+        this.saveSelectedVoice();
+        return true;
+      },
+      
+      getCurrentVoice: function() {
+        return this.voices[this.currentVoiceIndex] || null;
+      },
+      
+      getVoiceDisplayName: function(voice) {
+        if (!voice) return 'Default';
+        let name = voice.name || 'Default';
+        if (name.includes('Microsoft')) {
+          name = name.replace('Microsoft ', '').replace(' Desktop', '').replace(' - English (United States)', '');
+        }
+        return name;
+      },
+      
+      toggleTTS: function() {
+        this.ttsEnabled = !this.ttsEnabled;
+        if (!this.ttsEnabled) this.cancel();
+        return this.ttsEnabled;
+      },
+      
+      getSettings: function() {
+        return { ttsEnabled: this.ttsEnabled };
+      },
+      
+      waitForVoices: function() {
+        return new Promise((resolve) => {
+          const checkVoices = () => {
+            const voices = speechSynthesis.getVoices();
+            if (voices.length > 0) {
+              this.init();
+              resolve();
+            } else {
+              setTimeout(checkVoices, 100);
+            }
+          };
+          if (speechSynthesis.getVoices().length > 0) {
+            this.init();
+            resolve();
+          } else {
+            speechSynthesis.addEventListener('voiceschanged', () => {
+              this.init();
+              resolve();
+            });
+            checkVoices();
+          }
+        });
+      }
+    };
+    
+    const initVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        window.NarbeVoiceManager.init();
+      }
+    };
+    initVoices();
+    speechSynthesis.addEventListener('voiceschanged', initVoices);
+    document.addEventListener('DOMContentLoaded', initVoices);
+  </script>
+
+  <script src="predictions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -497,12 +497,6 @@ class ControlBar(tk.Tk):
         self._restarting_chrome = False
         self._restart_deadline = 0.0
         self._btn_idx: Dict[str, int] = {}
-        self._tts = None
-        if _win32com_client:
-            try:
-                self._tts = _win32com_client.Dispatch("SAPI.SpVoice")
-            except Exception:
-                self._tts = None
 
         self._build_ui()
         self._highlight(0)
@@ -560,6 +554,7 @@ class ControlBar(tk.Tk):
 
     def _make_items(self) -> List[Dict[str, Any]]:
         items = [
+            {"label": "Help", "action": self.on_help},
             {"label": "⏯ Play / Pause", "action": self.on_play_pause},
             {"id": "vol_down", "label": "🔉", "action": self.on_volume_down},
             {"id": "vol_up", "label": "🔊", "action": self.on_volume_up},
@@ -600,39 +595,8 @@ class ControlBar(tk.Tk):
             else:
                 b.configure(bg="#e6f0ff")
         self.update_idletasks()
-        self._announce_highlight(idx)
 
-    def _speak(self, text: str):
-        if not text:
-            return
-        if self._tts:
-            try:
-                self._tts.Speak(str(text), 3)
-            except Exception:
-                pass
 
-    def _announce_highlight(self, idx: int):
-        try:
-            item = self.items[idx]
-            bid = item.get("id")
-            label = self.tk_buttons[idx].cget("text")
-            say = None
-            if bid == "vol_down":
-                say = "volume down"
-            elif bid == "vol_up":
-                say = "volume up"
-            elif bid in ("prev", "next"):
-                say = "Previous" if bid == "prev" else "Next"
-            else:
-                low = (label or "").lower()
-                if "play" in low:
-                    say = "Play Pause"
-                elif "exit" in low:
-                    say = "Exit"
-            if say:
-                self._speak(say)
-        except Exception:
-            pass
 
     def _scan_forward(self):
         self.current_index = (self.current_index + 1) % len(self.tk_buttons)
@@ -774,7 +738,7 @@ class ControlBar(tk.Tk):
         if not self.winfo_exists() or not self._space_pressed:
             self._space_hold_active = False
             return
-        self._scan_forward()
+        self._scan_backward()
         self._space_hold_job = self.after(int(SPACE_HOLD_REPEAT * 1000), self._space_hold_tick)
 
     def _on_return_press(self, _evt=None):
@@ -856,6 +820,15 @@ class ControlBar(tk.Tk):
         self._send_media_prev_next("next")
         self._refocus_for(1.0)
 
+    def on_help(self):
+        if _win32com_client:
+            try:
+                speaker = _win32com_client.Dispatch("SAPI.SpVoice")
+                speaker.Speak("I need help")
+            except Exception:
+                pass
+        self._refocus_bar()
+
     def on_play_pause(self):
         if not self._activated_once:
             self._activated_once = True
@@ -881,28 +854,28 @@ class ControlBar(tk.Tk):
         self._refocus_bar()
 
     def on_volume_up(self):
-        self._speak("Volume up")
         ws = cdp_find_ws(self._last_url_hint())
         if not cdp_adjust_volume(ws, 0.1):
             try:
-                win32api.keybd_event(0xAF, 0, 0, 0)
-                win32api.keybd_event(0xAF, 0, 2, 0)
+                for _ in range(5):
+                    win32api.keybd_event(0xAF, 0, 0, 0)
+                    win32api.keybd_event(0xAF, 0, 2, 0)
             except Exception:
                 pass
         self._refocus_bar()
 
     def on_volume_down(self):
-        self._speak("Volume down")
         ws = cdp_find_ws(self._last_url_hint())
-        try:
-            win32api.keybd_event(0xAE, 0, 0, 0)
-            win32api.keybd_event(0xAE, 0, 2, 0)
-        except Exception:
-            pass
+        if not cdp_adjust_volume(ws, -0.1):
+            try:
+                for _ in range(5):
+                    win32api.keybd_event(0xAE, 0, 0, 0)
+                    win32api.keybd_event(0xAE, 0, 2, 0)
+            except Exception:
+                pass
         self._refocus_bar()
 
     def on_fullscreen_toggle(self):
-        self._speak("fullscreen")
         ws = cdp_find_ws(self._last_url_hint())
         done = False
         if ws and websocket:
