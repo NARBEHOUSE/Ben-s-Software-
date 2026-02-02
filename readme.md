@@ -1,4 +1,8 @@
-# Ben's Accessibility Software
+# Ben's LEGACY Accessibility Software
+
+**Update February 2026**
+> This is the legacy/old version of Ben's Accessibility Apps.
+> The New App can be found on https://www.github.com/narbehouse
 
 > ⚠️ **Disclaimer**  
 > This project was created by a caregiver with no formal programming background.  
@@ -168,6 +172,7 @@ This is more than just one program.
 It’s an **open-source example** of how AI + caregiving can create **accessible, personalized tools** for people with severe disabilities.
 
 We hope it inspires others to build and share similar projects.
+
 
 
 
