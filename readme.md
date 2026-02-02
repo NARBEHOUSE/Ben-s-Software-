@@ -2,7 +2,7 @@
 
 ## **Update February 2026**
 This is the legacy/old version of Ben's Accessibility Apps.
-The New App can be found on https://www.github.com/narbehouse
+The New App can be found on https://www.github.com/narbehouse](https://github.com/NARBEHOUSE/Benny-s-Accessibility-Hub-2.0)
 
 ##
 
@@ -174,6 +174,7 @@ This is more than just one program.
 It’s an **open-source example** of how AI + caregiving can create **accessible, personalized tools** for people with severe disabilities.
 
 We hope it inspires others to build and share similar projects.
+
 
 
 
